@@ -100,12 +100,30 @@ export default class MyPlugin extends Plugin {
 		});
 		return result;
 	}
-
 	async handleAction(action: string) {
 		const [type, value] = action.split("|").map(s => s.trim());
 		if (!type || !value) return;
 
 		switch (type) {
+			case "command":
+				// @ts-ignore
+				this.app.commands.executeCommandById(value);
+				break;
+			case "search":
+				const searchPlugin = (this.app as any).internalPlugins.getPluginById("global-search");
+				if (searchPlugin) searchPlugin.instance.openGlobalSearch(value);
+				break;
+			case "copy":
+				await navigator.clipboard.writeText(value);
+				new Notice("클립보드에 복사되었습니다!");
+				break;
+			case "js":
+				try {
+					new Function('app', 'Notice', value)(this.app, Notice);
+				} catch (e) {
+					new Notice("JS 실행 중 오류가 발생했습니다.");
+				}
+				break;
 			case "url":
 				window.open(value.startsWith("http") ? value : `https://${value}`);
 				break;
