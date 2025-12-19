@@ -1,35 +1,51 @@
-import {App, PluginSettingTab, Setting} from "obsidian";
+import { App, PluginSettingTab, Setting } from "obsidian";
 import MyPlugin from "./main";
 
 export interface MyPluginSettings {
-	mySetting: string;
+	maxCards: number;
+	aspectRatioWidth: number;
+	aspectRatioHeight: number;
 }
 
 export const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+	maxCards: 5,
+	aspectRatioWidth: 5,
+	aspectRatioHeight: 4
 }
 
 export class SampleSettingTab extends PluginSettingTab {
 	plugin: MyPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
 	display(): void {
-		const {containerEl} = this;
-
+		const { containerEl } = this;
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Settings #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
+			.setName('최대 카드 개수')
+			.setDesc('한 줄에 표시될 카드의 최대 개수를 설정합니다. (기본 5)')
+			.addSlider(slider => slider
+				.setLimits(1, 10, 1)
+				.setValue(this.plugin.settings.maxCards)
 				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
+					this.plugin.settings.maxCards = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('카드 가로 비율')
+			.addText(text => text
+				.setValue(String(this.plugin.settings.aspectRatioWidth))
+				.onChange(async (value) => {
+					this.plugin.settings.aspectRatioWidth = Number(value);
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('카드 세로 비율')
+			.addText(text => text
+				.setValue(String(this.plugin.settings.aspectRatioHeight))
+				.onChange(async (value) => {
+					this.plugin.settings.aspectRatioHeight = Number(value);
 					await this.plugin.saveSettings();
 				}));
 	}

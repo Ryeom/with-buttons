@@ -1,24 +1,36 @@
+/* styles.css */
 .card-buttons-container {
     display: grid;
-    /* 카드가 3개면 3등분, 6개면 적절히 줄바꿈 */
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
-    margin: 1rem 0;
+    gap: 16px;
+    /* 여백을 살짝 넓혀 더 고급스럽게 */
+    width: 100%;
+    margin: 1.5rem 0;
 }
 
 .card-item {
     display: flex;
     flex-direction: column;
-    border-radius: 12px;
+    aspect-ratio: 5 / 4;
+    /* 가로 5 : 세로 4 비율 (주인님이 선호하신 비율) */
     border: 1px solid var(--background-modifier-border);
-    background-color: var(--background-primary);
+    border-radius: 10px;
+    /* 라운드 값을 조금 더 줌 */
     overflow: hidden;
+    background-color: var(--background-primary);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: var(--interactive-accent);
 }
 
 .card-img-container {
-    width: 100%;
-    height: 150px;
+    height: 60%;
+    /* 이미지 영역 60% 차지 */
     background-color: var(--background-secondary);
+    overflow: hidden;
 }
 
 .card-img {
@@ -27,10 +39,28 @@
     object-fit: cover;
 }
 
-.card-content {
-    padding: 1rem;
+.card-info {
+    padding: 10px;
+    height: 40%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
 }
 
-.is-clickable {
-    cursor: pointer;
+.card-title {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 4px;
+    color: var(--text-normal);
+}
+
+.card-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.3;
+    /* 여러 줄 생략 처리 (최대 2줄) */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
