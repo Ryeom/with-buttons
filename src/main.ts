@@ -41,6 +41,7 @@ export default class MyPlugin extends Plugin {
 			let titleSize = "14px";
 			let descSize = "11px";
 			let styleId = "";
+			let imgRatio = "60";
 
 			if (settingSource) {
 				settingSource.split("\n").forEach(line => {
@@ -56,13 +57,13 @@ export default class MyPlugin extends Plugin {
 						if (key === "title-size" && value) titleSize = value.endsWith("px") ? value : `${value}px`;
 						if (key === "desc-size" && value) descSize = value.endsWith("px") ? value : `${value}px`;
 						if (key === "style") styleId = value;
+						if (key === "img-ratio") imgRatio = value.replace("%", ""); // [추가] 내부 비율 파싱
 					}
 				});
 			}
 
 			const container = el.createEl("div", { cls: "card-buttons-container" });
 
-			// [핵심] 스타일 강제 집행 로직 (속성 선택자 + 자동 !important)
 			if (styleId) {
 				const ids = styleId.split(/\s+/);
 				ids.forEach(id => {
@@ -78,15 +79,11 @@ export default class MyPlugin extends Plugin {
 							document.head.appendChild(styleTag);
 						}
 
-						// 1. 모든 CSS 속성에 !important 자동 부여
 						const importantCSS = fullCSS.replace(/([^;{}]+:[^;{}]+)(?=[;}]|$)/g, (match) => {
-							if (match.includes('!important') || match.trim().startsWith('/*')) {
-								return match;
-							}
+							if (match.includes('!important') || match.trim().startsWith('/*')) return match;
 							return `${match.trim()} !important`;
 						});
 
-						// 2. 선택자 앞에 [data-style-id]를 붙여 우선순위 격상
 						const scopedCSS = importantCSS.replace(/([^\r\n,{}]+)(?=[^{]*\{)/g, (match) => {
 							return match.split(',').map(s => `[${scopeAttr}] ${s.trim()}`).join(', ');
 						});
@@ -103,7 +100,6 @@ export default class MyPlugin extends Plugin {
 				const cardEl = container.createEl("div", { cls: "card-item" });
 				cardEl.style.setProperty("aspect-ratio", localRatio, "important");
 
-				// [개선] 솟아오르는 느낌을 위한 z-index 제어
 				cardEl.addEventListener('mouseenter', () => { cardEl.style.zIndex = "100"; });
 				cardEl.addEventListener('mouseleave', () => { cardEl.style.zIndex = "1"; });
 
@@ -117,12 +113,14 @@ export default class MyPlugin extends Plugin {
 						const imgDiv = cardEl.createEl("div", {
 							cls: isOnlyImage ? "card-img-container is-only-image" : "card-img-container"
 						});
+						imgDiv.style.height = isOnlyImage ? "100%" : `${imgRatio}%`;
 						imgDiv.createEl("img", { attr: { src: res }, cls: "card-img" });
 					}
 				}
 
 				if (!isOnlyImage) {
 					const infoEl = cardEl.createEl("div", { cls: "card-info" });
+					infoEl.style.height = `${100 - parseInt(imgRatio)}%`;
 					infoEl.style.display = "flex";
 					infoEl.style.flexDirection = "column";
 					infoEl.style.justifyContent = "flex-start";
