@@ -1,4 +1,11 @@
-import { App, Plugin, TFile, Notice } from 'obsidian';
+import {
+	App, Plugin, TFile, Notice, setIcon,
+	MarkdownPostProcessorContext, MarkdownRenderChild
+} from 'obsidian';
+import {
+	ViewUpdate, ViewPlugin, DecorationSet, Decoration,
+	EditorView, WidgetType
+} from "@codemirror/view";
 import { DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab } from "./settings";
 
 interface CardData {
@@ -15,59 +22,39 @@ export default class MyPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
+		// [1] 편집 모드(Live Preview) 확장 등록
+		this.registerEditorExtension(this.buildLivePreviewPlugin());
+
+		// [2] 읽기 모드 프로세서 등록
+		this.registerMarkdownPostProcessor((el, ctx) => {
+			const codes = el.querySelectorAll("code");
+			codes.forEach((codeEl) => {
+				const text = codeEl.innerText.trim();
+				if (text.startsWith("[!") && text.endsWith("!]")) {
+					ctx.addChild(new InlineButtonChild(codeEl as HTMLElement, this));
+				}
+			});
+		});
+
+		// [3] 카드 대시보드 프로세서 (코드 블록)
 		this.registerMarkdownCodeBlockProcessor("card-buttons", (source, el, ctx) => {
 			const parts = source.split("[card]");
-			const firstPart = parts[0] || ""; // undefined 방지
-
-			const settingSource = firstPart.includes("[setting]")
-				? firstPart.replace("[setting]", "").trim()
-				: "";
-
 			const cardSections = parts.slice(1).map(s => s.trim()).filter(s => s !== "");
-
-			let localRatio = `${this.settings.aspectRatioWidth} / ${this.settings.aspectRatioHeight}`;
-			let maxPerRow = this.settings.maxCards;
-
-			if (settingSource) {
-				settingSource.split("\n").forEach(line => {
-					if (!line.includes("|")) return;
-					const [key, value] = line.split("|").map(s => s.trim());
-					if (!key || !value) return;
-
-					if (key.toLowerCase() === "ratio") localRatio = value.replace(":", " / ");
-					if (key.toLowerCase() === "row") maxPerRow = Number(value) || maxPerRow;
-				});
-			}
-
 			const container = el.createEl("div", { cls: "card-buttons-container" });
-			const finalCards = cardSections.slice(0, maxPerRow);
+			container.style.gridTemplateColumns = `repeat(${cardSections.length || 1}, 1fr)`;
 
-			container.style.gridTemplateColumns = `repeat(${finalCards.length}, 1fr)`;
-
-			finalCards.forEach((section) => {
+			cardSections.forEach((section) => {
 				const data = this.parseSection(section);
 				const cardEl = container.createEl("div", { cls: "card-item" });
-
-				cardEl.style.aspectRatio = localRatio;
-
-				const imgContainer = cardEl.createEl("div", { cls: "card-img-container" });
 				if (data.picture) {
 					const resolvedPath = this.resolveImagePath(data.picture);
 					if (resolvedPath) {
-						imgContainer.createEl("img", {
-							attr: { src: resolvedPath },
-							cls: "card-img"
-						});
+						const imgContainer = cardEl.createEl("div", { cls: "card-img-container" });
+						imgContainer.createEl("img", { attr: { src: resolvedPath }, cls: "card-img" });
 					}
 				}
-
 				const infoEl = cardEl.createEl("div", { cls: "card-info" });
 				if (data.title) infoEl.createEl("div", { text: data.title, cls: "card-title" });
-
-				if (data.desc && finalCards.length <= 3) {
-					infoEl.createEl("p", { text: data.desc, cls: "card-desc" });
-				}
-
 				if (data.action) {
 					cardEl.addClass("is-clickable");
 					cardEl.onClickEvent(() => this.handleAction(data.action!));
@@ -78,6 +65,72 @@ export default class MyPlugin extends Plugin {
 		this.addSettingTab(new SampleSettingTab(this.app, this));
 	}
 
+	// --- 편집 모드(Live Preview) 핵심 보정 로직 ---
+	buildLivePreviewPlugin() {
+		const plugin = this;
+		return ViewPlugin.fromClass(class {
+			decorations: DecorationSet;
+			constructor(view: EditorView) { this.decorations = this.buildDecorations(view); }
+			update(update: ViewUpdate) {
+				// 문서가 변하거나, 커서(selection)가 이동할 때마다 업데이트
+				if (update.docChanged || update.viewportChanged || update.selectionSet) {
+					this.decorations = this.buildDecorations(update.view);
+				}
+			}
+			buildDecorations(view: EditorView) {
+				const decorations: any[] = [];
+				const regex = /`\[!(.*?)!\]`/g;
+				const text = view.state.doc.toString();
+
+				// 현재 커서의 위치(들)를 가져옵니다.
+				const selection = view.state.selection.main;
+
+				let match;
+				while ((match = regex.exec(text)) !== null) {
+					const start = match.index;
+					const end = start + match[0].length;
+					const content = match[1];
+
+					if (content) {
+						// 중요: 커서(selection)가 해당 문구 범위(start ~ end) 안에 있는지 확인
+						const isCursorInside = selection.from >= start && selection.to <= end;
+
+						if (!isCursorInside) {
+							// 커서가 밖에 있을 때만 버튼으로 대체(replace)
+							decorations.push(Decoration.replace({
+								widget: new InlineButtonWidget(content, plugin),
+							}).range(start, end));
+						} else {
+							// 커서가 안에 있으면 아무 Decoration도 입히지 않음 (원본 텍스트 노출)
+						}
+					}
+				}
+				return Decoration.set(decorations, true);
+			}
+		}, { decorations: v => v.decorations });
+	}
+
+	async handleAction(action: string) {
+		const parts = action.split("|").map(s => s.trim());
+		if (parts.length < 2) return;
+		const [type, value] = parts;
+		if (!type || !value) return;
+
+		switch (type) {
+			case "command": // @ts-ignore
+				this.app.commands.executeCommandById(value); break;
+			case "copy":
+				await navigator.clipboard.writeText(value);
+				new Notice("클립보드에 복사되었습니다!"); break;
+			case "url":
+				window.open(value.startsWith("http") ? value : `https://${value}`); break;
+			case "open":
+				await this.app.workspace.openLinkText(value, "", true); break;
+			default:
+				new Notice(`액션: ${type} | ${value}`);
+		}
+	}
+
 	resolveImagePath(sourcePath: string): string {
 		const file = this.app.metadataCache.getFirstLinkpathDest(sourcePath, "");
 		if (file instanceof TFile) return this.app.vault.adapter.getResourcePath(file.path);
@@ -85,74 +138,56 @@ export default class MyPlugin extends Plugin {
 	}
 
 	parseSection(section: string): CardData {
-		const lines = section.split("\n");
 		const result: CardData = {};
-		lines.forEach(line => {
-			const colonIndex = line.indexOf(":");
-			if (colonIndex !== -1) {
-				const key = line.substring(0, colonIndex).trim();
-				const value = line.substring(colonIndex + 1).trim();
-				const validKeys: (keyof CardData)[] = ['title', 'desc', 'icon', 'picture', 'action'];
-				if (validKeys.includes(key as keyof CardData)) {
-					result[key as keyof CardData] = value;
-				}
+		section.split("\n").forEach(line => {
+			const splitIdx = line.indexOf(":");
+			if (splitIdx !== -1) {
+				const key = line.substring(0, splitIdx).trim();
+				const value = line.substring(splitIdx + 1).trim();
+				const valid: (keyof CardData)[] = ['title', 'desc', 'picture', 'action'];
+				if (valid.includes(key as keyof CardData)) result[key as keyof CardData] = value;
 			}
 		});
 		return result;
 	}
-	async handleAction(action: string) {
-		const [type, value] = action.split("|").map(s => s.trim());
-		if (!type || !value) return;
 
-		switch (type) {
-			case "command":
-				// @ts-ignore
-				this.app.commands.executeCommandById(value);
-				break;
-			case "search":
-				const searchPlugin = (this.app as any).internalPlugins.getPluginById("global-search");
-				if (searchPlugin) searchPlugin.instance.openGlobalSearch(value);
-				break;
-			case "copy":
-				await navigator.clipboard.writeText(value);
-				new Notice("클립보드에 복사되었습니다!");
-				break;
-			case "js":
-				try {
-					new Function('app', 'Notice', value)(this.app, Notice);
-				} catch (e) {
-					new Notice("JS 실행 중 오류가 발생했습니다.");
-				}
-				break;
-			case "url":
-				window.open(value.startsWith("http") ? value : `https://${value}`);
-				break;
-			case "open":
-				await this.app.workspace.openLinkText(value, "", true);
-				break;
-			case "create":
-				this.createNewFileFromTemplate(value);
-				break;
-			default:
-				new Notice(`알 수 없는 액션: ${type}`);
+	loadSettings() { return this.loadData().then(data => this.settings = Object.assign({}, DEFAULT_SETTINGS, data)); }
+	saveSettings() { return this.saveData(this.settings); }
+}
+
+class InlineButtonWidget extends WidgetType {
+	constructor(readonly content: string, readonly plugin: MyPlugin) { super(); }
+	toDOM() {
+		const parts = this.content.split("|").map(p => p.trim());
+		const type = parts[0] || "link";
+		const value = parts[1] || "";
+		const span = document.createElement("span");
+		span.className = "inline-card-button";
+		const map: Record<string, string> = { copy: "copy", command: "terminal", url: "external-link", open: "file-text" };
+		const iconId = parts[2] || map[type] || "square-asterisk";
+		const iconSpan = span.createEl("span", { cls: "inline-button-icon" });
+		setIcon(iconSpan, iconId);
+		span.createEl("span", { text: value, cls: "inline-button-text" });
+		span.onclick = (e) => { e.preventDefault(); e.stopPropagation(); this.plugin.handleAction(`${type}|${value}`); };
+		return span;
+	}
+}
+
+class InlineButtonChild extends MarkdownRenderChild {
+	constructor(containerEl: HTMLElement, public plugin: MyPlugin) { super(containerEl); }
+	onload() {
+		const rawText = this.containerEl.innerText.trim();
+		const match = rawText.match(/^\[!(.*)!\]$/);
+		if (match && match[1]) {
+			const parts = match[1].split("|").map(p => p.trim());
+			if (parts.length < 2) return;
+			this.containerEl.empty();
+			this.containerEl.addClass("inline-card-button");
+			this.containerEl.removeClass("cm-inline-code");
+			const iconId = parts[2] || ({ copy: "copy", command: "terminal", url: "external-link", open: "file-text" }[parts[0]!] || "square-asterisk");
+			setIcon(this.containerEl.createEl("span", { cls: "inline-button-icon" }), iconId);
+			this.containerEl.createEl("span", { text: parts[1], cls: "inline-button-text" });
+			this.containerEl.onclick = (e) => { e.preventDefault(); e.stopPropagation(); this.plugin.handleAction(`${parts[0]}|${parts[1]}`); };
 		}
 	}
-
-	async createNewFileFromTemplate(templatePath: string) {
-		try {
-			const templateFile = this.app.metadataCache.getFirstLinkpathDest(templatePath, "");
-			const content = templateFile instanceof TFile ? await this.app.vault.read(templateFile) : "";
-
-			const fileName = `무제 ${Date.now()}.md`;
-			const newFile = await this.app.vault.create(fileName, content);
-			await this.app.workspace.getLeaf(true).openFile(newFile);
-			new Notice("새 메모가 생성되었습니다.");
-		} catch (e: any) {
-			new Notice(e.message?.includes("exists") ? "이미 파일이 존재합니다." : "생성 오류 발생");
-		}
-	}
-
-	onunload() { }
-	async loadSettings() { this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()); }
-	async saveSettings() { await this.saveData(this.settings); }
 }
