@@ -192,51 +192,87 @@ export default class MyPlugin extends Plugin {
 			}
 		}, { decorations: v => v.decorations });
 	}
-
 	async handleAction(actionString: string) {
 		const parts = actionString.split("|").map(s => s.trim());
 		const type = parts[0];
-		let value = parts[2] || parts[1];
-		if (!type || !value) return;
-
+		if (!type) return;
+		let defaultValue = parts[2] || parts[1];
 		switch (type) {
+			case "url": {
+				// App Scheme 대응 (url | 데스크탑 | 모바일)
+				const desktopUrl = parts[1];
+				const mobileScheme = parts[2];
+
+				if (!desktopUrl) return;
+
+				const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+				const finalDesktopUrl = desktopUrl.startsWith("http") ? desktopUrl : `https://${desktopUrl}`;
+
+				if (isMobileDevice && mobileScheme) {
+					let appOpened = false;
+					const onVisibilityChange = () => {
+						if (document.visibilityState === "hidden") appOpened = true;
+					};
+
+					document.addEventListener("visibilitychange", onVisibilityChange, { once: true });
+					window.location.href = mobileScheme;
+
+					setTimeout(() => {
+						document.removeEventListener("visibilitychange", onVisibilityChange);
+						if (!appOpened) window.open(finalDesktopUrl);
+					}, 500);
+				} else {
+					window.open(finalDesktopUrl);
+				}
+				break;
+			}
+
 			case "copy":
-				await navigator.clipboard.writeText(value);
-				new Notice(`복사되었습니다: ${value}`);
+				if (!defaultValue) return;
+				await navigator.clipboard.writeText(defaultValue);
+				new Notice(`복사되었습니다: ${defaultValue}`);
 				break;
+
 			case "command":
+				if (!defaultValue) return;
 				// @ts-ignore
-				this.app.commands.executeCommandById(value);
+				this.app.commands.executeCommandById(defaultValue);
 				break;
-			case "url":
-				window.open(value.startsWith("http") ? value : `https://${value}`);
-				break;
+
 			case "open":
-				await this.app.workspace.openLinkText(value, "", true);
+				if (!defaultValue) return;
+				await this.app.workspace.openLinkText(defaultValue, "", true);
 				break;
+
 			case "search":
+				if (!defaultValue) return;
 				const searchPlugin = (this.app as any).internalPlugins.getPluginById("global-search");
-				if (searchPlugin) searchPlugin.instance.openGlobalSearch(value);
+				if (searchPlugin) searchPlugin.instance.openGlobalSearch(defaultValue);
 				else new Notice("검색 플러그인 비활성 상태");
 				break;
+
 			case "create":
-				this.createNewFileFromTemplate(value);
+				if (!defaultValue) return;
+				this.createNewFileFromTemplate(defaultValue);
 				break;
+
 			case "js":
+				// JS는 parts[2]가 있을 확률이 높으므로 defaultValue(parts[2] || parts[1]) 사용
+				if (!defaultValue) return;
 				try {
 					const obsidian = require('obsidian');
-					new Function('app', 'Notice', 'obsidian', value)(this.app, Notice, obsidian);
+					new Function('app', 'Notice', 'obsidian', defaultValue)(this.app, Notice, obsidian);
 				} catch (e) {
 					const errorMsg = e instanceof Error ? e.message : String(e);
 					new Notice("JS 실행 오류: " + errorMsg);
 					console.error(e);
 				}
 				break;
+
 			default:
 				new Notice(`알 수 없는 액션: ${type}`);
 		}
 	}
-
 	async createNewFileFromTemplate(tPath: string) {
 		try {
 			const tFile = this.app.metadataCache.getFirstLinkpathDest(tPath, "");
