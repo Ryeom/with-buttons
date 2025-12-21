@@ -72,23 +72,25 @@ export default class MyPlugin extends Plugin {
 						const scopeAttr = `data-style-${id}`;
 						container.setAttribute(scopeAttr, "");
 
-						let styleTag = document.getElementById(`style-tag-${id}`) as HTMLStyleElement;
-						if (!styleTag) {
-							styleTag = document.createElement("style");
-							styleTag.id = `style-tag-${id}`;
-							document.head.appendChild(styleTag);
-						}
+						const oldStyleTag = document.head.querySelector(`#style-tag-${id}`);
+						if (oldStyleTag) oldStyleTag.remove();
 
+						// 2. 새 스타일 태그 생성
+						const styleTag = document.createElement("style");
+						styleTag.id = `style-tag-${id}`;
+
+						// 3. !important 및 스코핑 처리
 						const importantCSS = fullCSS.replace(/([^;{}]+:[^;{}]+)(?=[;}]|$)/g, (match) => {
 							if (match.includes('!important') || match.trim().startsWith('/*')) return match;
 							return `${match.trim()} !important`;
 						});
 
 						const scopedCSS = importantCSS.replace(/([^\r\n,{}]+)(?=[^{]*\{)/g, (match) => {
-							return match.split(',').map(s => `[${scopeAttr}] ${s.trim()}`).join(', ');
+							return match.split(',').map(s => `div[${scopeAttr}] ${s.trim()}`).join(', ');
 						});
 
 						styleTag.textContent = scopedCSS;
+						document.head.appendChild(styleTag);
 					}
 				});
 			}
@@ -113,8 +115,19 @@ export default class MyPlugin extends Plugin {
 						const imgDiv = cardEl.createEl("div", {
 							cls: isOnlyImage ? "card-img-container is-only-image" : "card-img-container"
 						});
+
 						imgDiv.style.height = isOnlyImage ? "100%" : `${imgRatio}%`;
+						imgDiv.style.position = "relative"; // 레이어 배치를 위한 기준점
+
 						imgDiv.createEl("img", { attr: { src: res }, cls: "card-img" });
+
+						const overlay = imgDiv.createEl("div", { cls: "card-img-overlay" });
+						overlay.style.position = "absolute";
+						overlay.style.top = "0";
+						overlay.style.left = "0";
+						overlay.style.width = "100%";
+						overlay.style.height = "100%";
+						overlay.style.zIndex = "5"; // 이미지보다 위에 위치
 					}
 				}
 

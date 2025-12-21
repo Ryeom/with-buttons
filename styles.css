@@ -99,6 +99,17 @@
     overflow: hidden;
 }
 
+/* 이미지 클릭 간섭 방지를 위한 오버레이 */
+.card-img-overlay {
+    pointer-events: none;
+    /* 클릭은 투과시키되 */
+}
+
+.is-clickable .card-img-overlay {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
 /****************************************** inline card*******************************************/
 .inline-card-button {
     display: inline-flex;
