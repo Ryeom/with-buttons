@@ -24,7 +24,6 @@ class FileSuggest extends EditorSuggest<TFile> {
 		const sub = line.substring(0, cursor.ch);
 		const match = sub.match(/(open|create|picture)\s*[:|]\s*([^:|]*)$/);
 
-		// [수정] 타입스크립트 에러 방지를 위한 안전한 체크 (match[2] ?? "")
 		if (match && match[2] !== undefined) {
 			return {
 				start: { line: cursor.line, ch: sub.lastIndexOf(match[2] ?? "") },
@@ -249,8 +248,8 @@ export default class MyPlugin extends Plugin {
 			case "create": {
 				if (!parts[1]) return;
 				const templatePath = parts[1];
-				const tags = parts[2] ? parts[2].split(",").map(t => t.trim()) : [];
-				this.createNewFileFromTemplate(templatePath, tags);
+				const rawArgs = parts.slice(2).join("|");
+				this.createNewFileFromTemplate(templatePath, rawArgs);
 				break;
 			}
 			case "js": if (!defaultValue) return;
@@ -263,9 +262,8 @@ export default class MyPlugin extends Plugin {
 		}
 	}
 
-	async createNewFileFromTemplate(tPath: string, tags: string[] = []) {
+	async createNewFileFromTemplate(tPath: string, rawArgs: string = "") {
 		try {
-			// [1] 템플릿 확보
 			const tFile = this.app.metadataCache.getFirstLinkpathDest(tPath, "");
 			if (!tFile) {
 				new Notice(`템플릿을 찾을 수 없습니다: ${tPath}`);
@@ -273,11 +271,37 @@ export default class MyPlugin extends Plugin {
 			}
 			let content = await this.app.vault.read(tFile as TFile);
 
-		
-			if (tags.length > 0) {
+			if (rawArgs.trim().startsWith("{")) {
+				try {
+					const props = JSON.parse(rawArgs);
+					let yamlString = "";
+					for (const [key, value] of Object.entries(props)) {
+						if (Array.isArray(value)) {
+							yamlString += `${key}:\n${value.map(v => `  - ${v}`).join("\n")}\n`;
+						} else {
+							yamlString += `${key}: ${value}\n`;
+						}
+					}
+
+					if (content.startsWith("---")) {
+						const sections = content.split("---");
+						let oldYaml = sections[1] || "";
+				
+						if (props.tags) {
+							oldYaml = oldYaml.replace(/tags:[\s\S]*?(?=\n[^\s\-|#])|tags:[\s\S]*/, "").trim();
+						}
+						content = `---\n${oldYaml}\n${yamlString.trim()}\n---${sections.slice(2).join("---")}`;
+					} else {
+						content = `---\n${yamlString}---\n\n` + content;
+					}
+				} catch (e) {
+					new Notice("JSON 형식이 잘못되었습니다.");
+				}
+			} else if (rawArgs.trim().length > 0) {
+				const tags = rawArgs.split(",").map(t => t.trim());
 				const tagListString = tags.map(t => `  - ${t}`).join("\n") + "\n";
 				if (content.includes("tags:")) {
-					content = content.replace("tags:", `tags:\n${tagListString.trimEnd()}`);
+					content = content.replace(/tags:[\s\S]*?(?=\n[^\s\-|#])|tags:[\s\S]*/, `tags:\n${tagListString.trimEnd()}`);
 				} else if (content.startsWith("---")) {
 					content = content.replace("---", `---\ntags:\n${tagListString.trimEnd()}`);
 				} else {
@@ -285,7 +309,6 @@ export default class MyPlugin extends Plugin {
 				}
 			}
 
-			// [3] 중복 파일명 자동 회피 로직
 			const now = new Date();
 			const dateStr = `${now.getFullYear()}년 ${String(now.getMonth() + 1).padStart(2, '0')}월 ${String(now.getDate()).padStart(2, '0')}일`;
 			const timeStr = `${String(now.getHours()).padStart(2, '0')}시 ${String(now.getMinutes()).padStart(2, '0')}분 ${String(now.getSeconds()).padStart(2, '0')}초 생성`;
@@ -294,23 +317,20 @@ export default class MyPlugin extends Plugin {
 			let finalPath = `${baseFileName}.md`;
 			let counter = 1;
 
-			// 디스크상에 파일이 존재하는지 실제 체크
 			while (await this.app.vault.adapter.exists(finalPath)) {
 				finalPath = `${baseFileName} (${counter}).md`;
 				counter++;
 			}
 
-			// [4] 파일 생성 및 강제 새 탭 열기
 			const nFile = await this.app.vault.create(finalPath, content);
 			if (nFile) {
-				// 기존 탭 간섭을 피하기 위해 명시적으로 새 탭에서 열기
 				const leaf = this.app.workspace.getLeaf('tab');
 				await leaf.openFile(nFile);
-				new Notice(`새 파일 생성됨: ${finalPath}`);
+				new Notice("범용 속성 주입 완료");
 			}
 		} catch (e) {
 			console.error(e);
-			new Notice("파일 생성 중 오류 발생. 콘솔을 확인하세요.");
+			new Notice("파일 생성 실패: 상세 내용은 콘솔 확인");
 		}
 	}
 
