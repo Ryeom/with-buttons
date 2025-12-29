@@ -24,10 +24,10 @@ class FileSuggest extends EditorSuggest<TFile> {
 		const sub = line.substring(0, cursor.ch);
 		const match = sub.match(/(open|create|picture)\s*[:|]\s*([^:|]*)$/);
 
-		// [수정] 타입스크립트 에러 방지를 위한 안전한 체크
+		// [수정] 타입스크립트 에러 방지를 위한 안전한 체크 (match[2] ?? "")
 		if (match && match[2] !== undefined) {
 			return {
-				start: { line: cursor.line, ch: sub.lastIndexOf(match[2]) },
+				start: { line: cursor.line, ch: sub.lastIndexOf(match[2] ?? "") },
 				end: cursor,
 				query: match[2]
 			};
@@ -246,7 +246,13 @@ export default class MyPlugin extends Plugin {
 				const searchPlugin = (this.app as any).internalPlugins.getPluginById("global-search");
 				if (searchPlugin) searchPlugin.instance.openGlobalSearch(defaultValue);
 				else new Notice("검색 플러그인 비활성 상태"); break;
-			case "create": if (!defaultValue) return; this.createNewFileFromTemplate(defaultValue); break;
+			case "create": {
+				if (!parts[1]) return;
+				const templatePath = parts[1];
+				const tags = parts[2] ? parts[2].split(",").map(t => t.trim()) : [];
+				this.createNewFileFromTemplate(templatePath, tags);
+				break;
+			}
 			case "js": if (!defaultValue) return;
 				try {
 					const obsidian = require('obsidian');
@@ -257,28 +263,54 @@ export default class MyPlugin extends Plugin {
 		}
 	}
 
-	async createNewFileFromTemplate(tPath: string) {
+	async createNewFileFromTemplate(tPath: string, tags: string[] = []) {
 		try {
+			// [1] 템플릿 확보
 			const tFile = this.app.metadataCache.getFirstLinkpathDest(tPath, "");
-			const content = tFile instanceof TFile ? await this.app.vault.read(tFile) : "";
+			if (!tFile) {
+				new Notice(`템플릿을 찾을 수 없습니다: ${tPath}`);
+				return;
+			}
+			let content = await this.app.vault.read(tFile as TFile);
 
+		
+			if (tags.length > 0) {
+				const tagListString = tags.map(t => `  - ${t}`).join("\n") + "\n";
+				if (content.includes("tags:")) {
+					content = content.replace("tags:", `tags:\n${tagListString.trimEnd()}`);
+				} else if (content.startsWith("---")) {
+					content = content.replace("---", `---\ntags:\n${tagListString.trimEnd()}`);
+				} else {
+					content = `---\ntags:\n${tagListString}---\n\n` + content;
+				}
+			}
+
+			// [3] 중복 파일명 자동 회피 로직
 			const now = new Date();
-			const dateStr = now.getFullYear() + '년 ' +
-				String(now.getMonth() + 1).padStart(2, '0') + '월 ' +
-				String(now.getDate()).padStart(2, '0') + '일';
+			const dateStr = `${now.getFullYear()}년 ${String(now.getMonth() + 1).padStart(2, '0')}월 ${String(now.getDate()).padStart(2, '0')}일`;
+			const timeStr = `${String(now.getHours()).padStart(2, '0')}시 ${String(now.getMinutes()).padStart(2, '0')}분 ${String(now.getSeconds()).padStart(2, '0')}초 생성`;
 
-			// 콜론(:) 사용불가
-			const timeStr = String(now.getHours()).padStart(2, '0') + '시 ' +
-				String(now.getMinutes()).padStart(2, '0') + '분 ' +
-				String(now.getSeconds()).padStart(2, '0') + '초 생성';
+			let baseFileName = `무제 ${dateStr} ${timeStr}`;
+			let finalPath = `${baseFileName}.md`;
+			let counter = 1;
 
-			const fName = `무제 ${dateStr} ${timeStr}.md`;
+			// 디스크상에 파일이 존재하는지 실제 체크
+			while (await this.app.vault.adapter.exists(finalPath)) {
+				finalPath = `${baseFileName} (${counter}).md`;
+				counter++;
+			}
 
-			const nFile = await this.app.vault.create(fName, content);
-			if (nFile) await this.app.workspace.getLeaf(true).openFile(nFile);
+			// [4] 파일 생성 및 강제 새 탭 열기
+			const nFile = await this.app.vault.create(finalPath, content);
+			if (nFile) {
+				// 기존 탭 간섭을 피하기 위해 명시적으로 새 탭에서 열기
+				const leaf = this.app.workspace.getLeaf('tab');
+				await leaf.openFile(nFile);
+				new Notice(`새 파일 생성됨: ${finalPath}`);
+			}
 		} catch (e) {
 			console.error(e);
-			new Notice("파일 생성 실패: 파일 이름에 금지된 문자(: / \\ 등)가 포함되었거나 중복되었습니다.");
+			new Notice("파일 생성 중 오류 발생. 콘솔을 확인하세요.");
 		}
 	}
 
