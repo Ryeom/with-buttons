@@ -200,10 +200,21 @@ export default class MyPlugin extends Plugin {
 					}, 500);
 				} else { window.open(finalDesktopUrl); }
 				break;
-			case "copy": if (!val2) return; await navigator.clipboard.writeText(val2); new Notice(`복사되었습니다: ${val2}`); break;
-			case "command": if (!val2) return; (this.app as any).commands.executeCommandById(val2); break;
-			case "open": if (!val2) return; await this.app.workspace.openLinkText(val2, "", true); break;
-			case "search": if (!val2) return;
+			case "copy":
+				if (!val2) return;
+				await navigator.clipboard.writeText(val2);
+				new Notice(`복사되었습니다: ${val2}`);
+				break;
+			case "command":
+				if (!val2) return;
+				(this.app as any).commands.executeCommandById(val2);
+				break;
+			case "open":
+				if (!val2) return;
+				await this.app.workspace.openLinkText(val2, "", true);
+				break;
+			case "search":
+				if (!val2) return;
 				const searchPlugin = (this.app as any).internalPlugins.getPluginById("global-search");
 				if (searchPlugin) searchPlugin.instance.openGlobalSearch(val2);
 				break;
@@ -212,16 +223,19 @@ export default class MyPlugin extends Plugin {
 				const rawArgs = parts.slice(2).join("|");
 				this.createNewFileFromTemplate(val1, rawArgs);
 				break;
-			case "js": if (!val2) return;
+			case "js":
+				if (!val2) return;
 				try {
 					const obsidian = require('obsidian');
 					new Function('app', 'Notice', 'obsidian', val2)(this.app, Notice, obsidian);
-				} catch (e) { new Notice("JS 실행 오류"); }
+				} catch (e) {
+					new Notice("JS 실행 오류");
+				}
 				break;
-			default: new Notice(`알 수 없는 액션: ${type}`);
+			default:
+				new Notice(`알 수 없는 액션: ${type}`);
 		}
 	}
-
 	async createNewFileFromTemplate(tPath: string, rawArgs: string = "") {
 		try {
 			const tFile = this.app.metadataCache.getFirstLinkpathDest(tPath, "");
@@ -256,7 +270,9 @@ export default class MyPlugin extends Plugin {
 			const nFile = await this.app.vault.create(finalPath, content);
 			await this.app.workspace.getLeaf('tab').openFile(nFile);
 			new Notice("병합 완료");
-		} catch (e) { new Notice("생성 실패"); }
+		} catch (e) {
+			new Notice("생성 실패");
+		}
 	}
 
 	private mergeYaml(content: string, props: any) {
