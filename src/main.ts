@@ -1,6 +1,5 @@
 import {
-	App, Plugin, TFile, Notice, setIcon,
-	Editor, EditorSuggest,
+	Plugin, TFile, Notice, setIcon,
 	MarkdownRenderChild
 } from 'obsidian';
 import {
@@ -228,7 +227,7 @@ export default class MyPlugin extends Plugin {
 				try {
 					const obsidian = require('obsidian');
 					new Function('app', 'Notice', 'obsidian', val2)(this.app, Notice, obsidian);
-				} catch (e) {
+				} catch {
 					new Notice("JS 실행 오류");
 				}
 				break;
@@ -270,7 +269,7 @@ export default class MyPlugin extends Plugin {
 			const nFile = await this.app.vault.create(finalPath, content);
 			await this.app.workspace.getLeaf('tab').openFile(nFile);
 			new Notice("병합 완료");
-		} catch (e) {
+		} catch {
 			new Notice("생성 실패");
 		}
 	}
