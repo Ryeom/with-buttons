@@ -16,6 +16,9 @@ interface CardData {
 	desc?: string;
 	picture?: string;
 	action?: string;
+	color?: string;
+	textColor?: string;
+	if?: string;
 }
 
 export default class MyPlugin extends Plugin {
@@ -39,147 +42,14 @@ export default class MyPlugin extends Plugin {
 		});
 
 		this.registerMarkdownCodeBlockProcessor("card-buttons", (source, el, ctx) => {
-			const parts = source.split("[card]");
-			const firstPart = parts[0] || "";
-			const settingSource = firstPart.includes("[setting]") ? firstPart.replace("[setting]", "").trim() : "";
-			const cardSections = parts.slice(1).map(s => s.trim()).filter(s => s !== "");
-
-			let localRatio = "1 / 1";
-			let titleSize = "14px";
-			let descSize = "11px";
-			let styleId = "";
-			let imgRatioStr = "60";
-			let direction = "vertical";
-
-			if (settingSource) {
-				settingSource.split("\n").forEach(line => {
-					const separator = line.includes("|") ? "|" : ":";
-					if (!line.includes(separator)) return;
-					const segments = line.split(separator).map(s => s.trim());
-					if (segments.length >= 2) {
-						const key = segments[0]?.toLowerCase();
-						const value = segments[1] || "";
-						if (key === "ratio") localRatio = value.replace(/\s/g, "").replace(":", " / ");
-						if (key === "title-size") titleSize = value.endsWith("px") ? value : `${value}px`;
-						if (key === "desc-size") descSize = value.endsWith("px") ? value : `${value}px`;
-						if (key === "style") styleId = value;
-						if (key === "img-ratio") imgRatioStr = value.replace("%", "");
-						if (key === "direction") direction = value.toLowerCase();
-					}
-				});
-			}
-
-			const rawRatio = parseInt(imgRatioStr);
-			const imgRatio = isNaN(rawRatio) ? 60 : Math.min(Math.max(rawRatio, 0), 100);
-
-			const container = el.createEl("div", { cls: "card-buttons-container" });
-
-			if (styleId) {
-				const ids = styleId.split(/\s+/);
-				ids.forEach(id => {
-					const fullCSS = this.settings.customStyles[id];
-					if (fullCSS) {
-						const scopeAttr = `data-style-${id}`;
-						container.setAttribute(scopeAttr, "");
-						const oldTag = document.getElementById(`style-tag-${id}`);
-						if (oldTag) oldTag.remove();
-
-						const styleTag = document.head.createEl("style", { attr: { id: `style-tag-${id}` } });
-
-						// !important 자동 주입
-						const importantCSS = fullCSS.replace(/([^;{}]+:[^;{}]+)(?=[;}]|$)/g, (match) => {
-							if (match.includes('!important') || match.trim().startsWith('/*')) return match;
-							return `${match.trim()} !important`;
-						});
-
-						styleTag.textContent = importantCSS.replace(/([^\r\n,{}]+)(?=[^{]*\{)/g, (match) => {
-							return match.split(',').map(s => `div[${scopeAttr}] ${s.trim()}`).join(', ');
-						});
-					}
-				});
-			}
-
-			container.style.display = "grid";
-			container.style.gridTemplateColumns = `repeat(${cardSections.length || 1}, 1fr)`;
-			container.style.gap = "10px";
-
-			cardSections.forEach((section) => {
-				const data = this.parseSection(section);
-
-				// Resolve dynamic text for Title and Description
-				if (data.title) data.title = resolveDynamicText(this.app, data.title);
-				if (data.desc) data.desc = resolveDynamicText(this.app, data.desc);
-
-				const cardEl = container.createEl("div", { cls: "card-item" });
-
-				const isVertical = direction === "vertical";
-				cardEl.style.display = "flex";
-				cardEl.style.flexDirection = isVertical ? "column" : "row";
-				cardEl.style.setProperty("aspect-ratio", localRatio, "important");
-				cardEl.style.overflow = "hidden";
-
-				cardEl.addEventListener('mouseenter', () => { cardEl.style.zIndex = "100"; });
-				cardEl.addEventListener('mouseleave', () => { cardEl.style.zIndex = "1"; });
-
-				const rawPic = data.picture || "";
-				const isOnlyImage = rawPic.includes("|only");
-				const picPath = isOnlyImage ? rawPic.split("|only")[0]?.trim() : rawPic.trim();
-
-				if (picPath) {
-					const res = this.resolveImagePath(picPath);
-					if (res) {
-						const imgDiv = cardEl.createEl("div", { cls: isOnlyImage ? "card-img-container is-only-image" : "card-img-container" });
-						imgDiv.style.flexShrink = "0";
-
-						if (isVertical) {
-							imgDiv.style.width = "100%";
-							imgDiv.style.height = isOnlyImage ? "100%" : `${imgRatio}%`;
-						} else {
-							imgDiv.style.width = isOnlyImage ? "100%" : `${imgRatio}%`;
-							imgDiv.style.height = "100%";
-						}
-
-						imgDiv.style.position = "relative";
-						imgDiv.createEl("img", { attr: { src: res }, cls: "card-img" });
-						const overlay = imgDiv.createEl("div", { cls: "card-img-overlay" });
-						overlay.style.cssText = "position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5;";
-					}
-				}
-
-				if (!isOnlyImage) {
-					const infoEl = cardEl.createEl("div", { cls: "card-info" });
-					infoEl.style.display = "flex";
-					infoEl.style.flexDirection = "column";
-					infoEl.style.flexGrow = "1";
-
-					if (isVertical) {
-						infoEl.style.width = "100%";
-						infoEl.style.height = `${100 - imgRatio}%`;
-					} else {
-						infoEl.style.width = `${100 - imgRatio}%`;
-						infoEl.style.height = "100%";
-					}
-
-					if (data.title) {
-						const tEl = infoEl.createEl("div", { text: data.title, cls: "card-title" });
-						tEl.style.fontSize = titleSize; tEl.style.lineHeight = "1.2"; tEl.style.marginBottom = "2px";
-					}
-					if (data.desc) {
-						const dEl = infoEl.createEl("p", { text: data.desc, cls: "card-desc" });
-						dEl.style.fontSize = descSize; dEl.style.lineHeight = "1.2"; dEl.style.margin = "0";
-					}
-				}
-
-				if (data.action) {
-					cardEl.addClass("is-clickable");
-					cardEl.onClickEvent(() => this.handleAction(data.action!));
-				}
-			});
+			const child = new CardBlockRenderer(el, source, this);
+			ctx.addChild(child);
 		});
 		this.addSettingTab(new SampleSettingTab(this.app, this));
 	}
 
 	async handleAction(actionString: string) {
+		console.log("With Buttons: Handling action:", actionString);
 		const parts = actionString.split("|").map(s => s.trim());
 		const type = parts[0];
 		if (!type) return;
@@ -211,7 +81,11 @@ export default class MyPlugin extends Plugin {
 				break;
 			case "command":
 				if (!val2) return;
-				(this.app as any).commands.executeCommandById(val2);
+				const success = (this.app as any).commands.executeCommandById(val2);
+				if (!success) {
+					new Notice(`명령어 실행 실패: '${val2}' ID를 확인해주세요.`);
+					console.warn(`With Buttons: Command '${val2}' not found.`);
+				}
 				break;
 			case "open":
 				if (!val2) return;
@@ -232,8 +106,22 @@ export default class MyPlugin extends Plugin {
 				try {
 					const obsidian = require('obsidian');
 					new Function('app', 'Notice', 'obsidian', val2)(this.app, Notice, obsidian);
-				} catch {
-					new Notice("JS 실행 오류");
+				} catch (e) {
+					new Notice("JS 실행 오류 (콘솔 확인)");
+					console.error("JS Action Error:", e);
+				}
+				break;
+			case "toggle":
+				const prop = val1;
+				if (!prop) return;
+				const file = val2 && val2 !== prop ? this.app.metadataCache.getFirstLinkpathDest(val2, "") : this.app.workspace.getActiveFile();
+				if (file instanceof TFile) {
+					this.app.fileManager.processFrontMatter(file, (fm) => {
+						const cur = fm[prop];
+						fm[prop] = cur === true ? false : true; // Toggle logic (undefined/null becomes true)
+					});
+				} else {
+					new Notice("파일을 찾을 수 없습니다.");
 				}
 				break;
 			default:
@@ -397,10 +285,13 @@ function renderInlineButton(el: HTMLElement, content: string, plugin: MyPlugin) 
 	// Resolve dynamic text for Label
 	const finalLabel = resolveDynamicText(plugin.app, label);
 
-	const iconColor = parts[3]; const bgColor = parts[4];
+	// Resolve dynamic colors
+	const iconColor = parts[3] ? resolveDynamicText(plugin.app, parts[3]) : "";
+	const bgColor = parts[4] ? resolveDynamicText(plugin.app, parts[4]) : "";
+
 	el.addClass("inline-card-button");
 	if (bgColor) el.style.backgroundColor = bgColor;
-	const iconMap: Record<string, string> = { copy: "copy", command: "terminal", url: "external-link", open: "file-text", search: "search", create: "plus-square", js: "code-2" };
+	const iconMap: Record<string, string> = { copy: "copy", command: "terminal", url: "external-link", open: "file-text", search: "search", create: "plus-square", js: "code-2", toggle: "check-square" };
 	const iconId = iconMap[type] || "square-asterisk";
 	const iconSpan = el.createEl("span", { cls: "inline-button-icon" });
 	setIcon(iconSpan, iconId);
@@ -424,5 +315,178 @@ class InlineButtonChild extends MarkdownRenderChild {
 			this.containerEl.removeClass("cm-inline-code");
 			renderInlineButton(this.containerEl, match[1], this.plugin);
 		}
+	}
+}
+class CardBlockRenderer extends MarkdownRenderChild {
+	constructor(containerEl: HTMLElement, private source: string, private plugin: MyPlugin) {
+		super(containerEl);
+	}
+
+	onload() {
+		this.render();
+		// Register vault events to trigger re-render
+		// Debounce render to allow Vault cache to update
+		const debouncedRender = () => setTimeout(() => this.render(), 100);
+		this.registerEvent(this.plugin.app.vault.on("create", debouncedRender));
+		this.registerEvent(this.plugin.app.vault.on("delete", debouncedRender));
+		this.registerEvent(this.plugin.app.vault.on("rename", debouncedRender));
+		this.registerEvent(this.plugin.app.vault.on("modify", debouncedRender)); // Also update on file changes (e.g. frontmatter)
+	}
+
+	render() {
+		this.containerEl.empty();
+		const el = this.containerEl;
+		const parts = this.source.split("[card]");
+		const firstPart = parts[0] || "";
+		const settingSource = firstPart.includes("[setting]") ? firstPart.replace("[setting]", "").trim() : "";
+		const cardSections = parts.slice(1).map(s => s.trim()).filter(s => s !== "");
+
+		let localRatio = "1 / 1";
+		let titleSize = "14px";
+		let descSize = "11px";
+		let styleId = "";
+		let imgRatioStr = "60";
+		let direction = "vertical";
+
+		if (settingSource) {
+			settingSource.split("\n").forEach(line => {
+				const separator = line.includes("|") ? "|" : ":";
+				if (!line.includes(separator)) return;
+				const segments = line.split(separator).map(s => s.trim());
+				if (segments.length >= 2) {
+					const key = segments[0]?.toLowerCase();
+					const value = segments[1] || "";
+					if (key === "ratio") localRatio = value.replace(/\s/g, "").replace(":", " / ");
+					if (key === "title-size") titleSize = value.endsWith("px") ? value : `${value}px`;
+					if (key === "desc-size") descSize = value.endsWith("px") ? value : `${value}px`;
+					if (key === "style") styleId = value;
+					if (key === "img-ratio") imgRatioStr = value.replace("%", "");
+					if (key === "direction") direction = value.toLowerCase();
+				}
+			});
+		}
+
+		const rawRatio = parseInt(imgRatioStr);
+		const imgRatio = isNaN(rawRatio) ? 60 : Math.min(Math.max(rawRatio, 0), 100);
+
+		const container = el.createEl("div", { cls: "card-buttons-container" });
+
+		if (styleId) {
+			const ids = styleId.split(/\s+/);
+			ids.forEach(id => {
+				const fullCSS = this.plugin.settings.customStyles[id];
+				if (fullCSS) {
+					const scopeAttr = `data-style-${id}`;
+					container.setAttribute(scopeAttr, "");
+					const oldTag = document.getElementById(`style-tag-${id}`);
+					if (oldTag) oldTag.remove();
+
+					const styleTag = document.head.createEl("style", { attr: { id: `style-tag-${id}` } });
+
+					// !important 자동 주입
+					const importantCSS = fullCSS.replace(/([^;{}]+:[^;{}]+)(?=[;}]|$)/g, (match) => {
+						if (match.includes('!important') || match.trim().startsWith('/*')) return match;
+						return `${match.trim()} !important`;
+					});
+
+					styleTag.textContent = importantCSS.replace(/([^\r\n,{}]+)(?=[^{]*\{)/g, (match) => {
+						return match.split(',').map(s => `div[${scopeAttr}] ${s.trim()}`).join(', ');
+					});
+				}
+			});
+		}
+
+		container.style.display = "grid";
+		container.style.gridTemplateColumns = `repeat(${cardSections.length || 1}, 1fr)`;
+		container.style.gap = "10px";
+
+		cardSections.forEach((section) => {
+			const data = this.plugin.parseSection(section);
+
+			// Resolve logic for all fields
+			if (data.title) data.title = resolveDynamicText(this.plugin.app, data.title);
+			if (data.desc) data.desc = resolveDynamicText(this.plugin.app, data.desc);
+			if (data.action) data.action = resolveDynamicText(this.plugin.app, data.action);
+
+			const rawIf = data.if ? resolveDynamicText(this.plugin.app, data.if) : "true";
+			if (rawIf === "false" || rawIf === "null" || rawIf === "undefined") return;
+
+			const rawColor = data.color ? resolveDynamicText(this.plugin.app, data.color) : "";
+			const rawTextColor = data.textColor ? resolveDynamicText(this.plugin.app, data.textColor) : "";
+
+			const cardEl = container.createEl("div", { cls: "card-item" });
+
+			// Apply Dynamic Colors
+			if (rawColor) cardEl.style.backgroundColor = rawColor;
+			if (rawTextColor) {
+				cardEl.style.color = rawTextColor;
+			} else if (rawColor === "red" || rawColor.startsWith("#ff0000") || rawColor === "#f00") {
+				// Auto-contrast for red (simple heuristic)
+				cardEl.style.color = "white";
+			}
+
+			const isVertical = direction === "vertical";
+			cardEl.style.display = "flex";
+			cardEl.style.flexDirection = isVertical ? "column" : "row";
+			cardEl.style.setProperty("aspect-ratio", localRatio, "important");
+			cardEl.style.overflow = "hidden";
+
+			cardEl.addEventListener('mouseenter', () => { cardEl.style.zIndex = "100"; });
+			cardEl.addEventListener('mouseleave', () => { cardEl.style.zIndex = "1"; });
+
+			const rawPic = data.picture || "";
+			const isOnlyImage = rawPic.includes("|only");
+			const picPath = isOnlyImage ? rawPic.split("|only")[0]?.trim() : rawPic.trim();
+
+			if (picPath) {
+				const res = this.plugin.resolveImagePath(picPath);
+				if (res) {
+					const imgDiv = cardEl.createEl("div", { cls: isOnlyImage ? "card-img-container is-only-image" : "card-img-container" });
+					imgDiv.style.flexShrink = "0";
+
+					if (isVertical) {
+						imgDiv.style.width = "100%";
+						imgDiv.style.height = isOnlyImage ? "100%" : `${imgRatio}%`;
+					} else {
+						imgDiv.style.width = isOnlyImage ? "100%" : `${imgRatio}%`;
+						imgDiv.style.height = "100%";
+					}
+
+					imgDiv.style.position = "relative";
+					imgDiv.createEl("img", { attr: { src: res }, cls: "card-img" });
+					const overlay = imgDiv.createEl("div", { cls: "card-img-overlay" });
+					overlay.style.cssText = "position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5;";
+				}
+			}
+
+			if (!isOnlyImage) {
+				const infoEl = cardEl.createEl("div", { cls: "card-info" });
+				infoEl.style.display = "flex";
+				infoEl.style.flexDirection = "column";
+				infoEl.style.flexGrow = "1";
+
+				if (isVertical) {
+					infoEl.style.width = "100%";
+					infoEl.style.height = `${100 - imgRatio}%`;
+				} else {
+					infoEl.style.width = `${100 - imgRatio}%`;
+					infoEl.style.height = "100%";
+				}
+
+				if (data.title) {
+					const tEl = infoEl.createEl("div", { text: data.title, cls: "card-title" });
+					tEl.style.fontSize = titleSize; tEl.style.lineHeight = "1.2"; tEl.style.marginBottom = "2px";
+				}
+				if (data.desc) {
+					const dEl = infoEl.createEl("p", { text: data.desc, cls: "card-desc" });
+					dEl.style.fontSize = descSize; dEl.style.lineHeight = "1.2"; dEl.style.margin = "0";
+				}
+			}
+
+			if (data.action) {
+				cardEl.addClass("is-clickable");
+				cardEl.onClickEvent(() => this.plugin.handleAction(data.action!));
+			}
+		});
 	}
 }
