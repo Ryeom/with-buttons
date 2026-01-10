@@ -307,6 +307,7 @@ class CardBlockRenderer extends MarkdownRenderChild {
 		let imgRatioStr = "60";
 		let direction = "top"; // Default to Top (Column)
 		let gridStr = "";
+		let textLayout: "vertical" | "horizontal" = "vertical";
 
 		if (settingSource) {
 			settingSource.split("\n").forEach(line => {
@@ -325,6 +326,10 @@ class CardBlockRenderer extends MarkdownRenderChild {
 					if (key === "direction") {
 						const val = value.toLowerCase();
 						direction = (val === "vertical") ? "top" : val;
+					}
+					if (key === "textlayout") {
+						const val = value.toLowerCase();
+						textLayout = (val === "horizontal") ? "horizontal" : "vertical";
 					}
 				}
 			});
@@ -411,6 +416,7 @@ class CardBlockRenderer extends MarkdownRenderChild {
 				direction: direction as any,
 				imgRatio: imgRatio,
 				ratio: localRatio,
+				textLayout: textLayout,
 				palettes: this.plugin.settings.palettes
 			};
 

@@ -17,6 +17,7 @@ export interface CardLayoutConfig {
     direction: "top" | "bottom" | "left" | "right";
     imgRatio: number; // 10-90
     ratio: string;    // "auto", "1/1", "16/9"
+    textLayout?: "vertical" | "horizontal"; // V4.2
     palettes: Record<string, string>;
 }
 
@@ -172,17 +173,36 @@ export function renderCardButton(
     }
 
     infoArea.style.display = "flex";
-    infoArea.style.flexDirection = "column";
-    infoArea.style.justifyContent = "center";
+
+    // V4.2 Text Layout Logic
+    if (layout.textLayout === "horizontal") {
+        infoArea.style.flexDirection = "row";
+        infoArea.style.alignItems = "center";
+        infoArea.style.justifyContent = "flex-start"; // Change from space-between to flex-start
+        infoArea.style.gap = "8px"; // Slightly reduced gap
+    } else {
+        infoArea.style.flexDirection = "column";
+        infoArea.style.justifyContent = "center";
+    }
+
     infoArea.style.overflow = "hidden";
 
     const title = infoArea.createEl("div", { text: btn.title || "(제목 없음)" });
     title.style.fontSize = "1.1em";
     title.style.fontWeight = "bold";
+
+    if (layout.textLayout === "horizontal") {
+        // Remove flex=1 to prevent excessive gap
+        title.style.flexShrink = "0"; // Prevent title from collapsing too much? Or let it shrink?
+        // Let's rely on max-width if needed, but for now just natural width
+        title.style.marginBottom = "0";
+    } else {
+        title.style.marginBottom = "4px";
+    }
+
     title.style.whiteSpace = "nowrap";
     title.style.overflow = "hidden";
     title.style.textOverflow = "ellipsis";
-    title.style.marginBottom = "4px";
 
     if (btn.desc) {
         const desc = infoArea.createEl("div", { text: btn.desc });

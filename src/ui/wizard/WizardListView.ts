@@ -49,6 +49,7 @@ export class WizardListView {
         });
         styleSelect.onchange = () => { this.modal.styleId = styleSelect.value; this.modal.render(); };
 
+
         // 2. Direction (4-Way)
         const dirDiv = settingBar.createEl("div");
         dirDiv.createEl("span", { text: "레이아웃: " }).style.fontWeight = "bold";
@@ -60,6 +61,16 @@ export class WizardListView {
         dirSelect.createEl("option", { text: "이미지 오른쪽 (Right)", value: "right" });
         dirSelect.value = this.modal.direction;
         dirSelect.onchange = () => { this.modal.direction = dirSelect.value as any; this.modal.render(); };
+
+        // 2.5 Text Layout (V4.2)
+        const textLayoutDiv = settingBar.createEl("div");
+        textLayoutDiv.createEl("span", { text: "텍스트: " }).style.fontWeight = "bold";
+        const textLayoutSelect = textLayoutDiv.createEl("select");
+        textLayoutSelect.style.marginLeft = "5px";
+        textLayoutSelect.createEl("option", { text: "상하 배치 (Stack)", value: "vertical" });
+        textLayoutSelect.createEl("option", { text: "좌우 배치 (Inline)", value: "horizontal" });
+        textLayoutSelect.value = this.modal.textLayout;
+        textLayoutSelect.onchange = () => { this.modal.textLayout = textLayoutSelect.value as any; this.modal.render(); };
 
         // 3. Aspect Ratio (V3.8) - Custom Input (V4.2)
         const ratioDiv = settingBar.createEl("div");
@@ -256,6 +267,7 @@ export class WizardListView {
                 direction: this.modal.direction,
                 imgRatio: this.modal.imgRatio,
                 ratio: this.modal.ratio,
+                textLayout: this.modal.textLayout, // V4.2 Fix
                 palettes: this.plugin.settings.palettes
             };
             const cardBtnConfig = {
