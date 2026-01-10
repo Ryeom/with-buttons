@@ -103,9 +103,15 @@ export function renderCardButton(
             // Fixed Mode: Percent Height
             imgArea.style.height = `${layout.imgRatio}%`;
         } else {
-            // Auto Mode: Natural Image Height (Aspect Ratio 16/9)
+            // Auto Mode: Dynamic Aspect Ratio based on Slider (V3.9.1 Fix)
+            // Map 10-90 range to aspect ratio. 50% = 1/1. 
+            // Formula: ratio = imgRatio / (100 - imgRatio) * adjustment?
+            // Simple split logic: ratio = img / text.
+            const ratioVal = layout.imgRatio / (100 - layout.imgRatio);
+            // Multiplier to make it feel natural (60% -> ~1.77 for 16:9)
+            // 60/40 = 1.5. 
             imgArea.style.height = "auto";
-            imgArea.style.aspectRatio = "16/9";
+            imgArea.style.aspectRatio = `${ratioVal * 1.5}`; // 1.5 factor for wider default
         }
     } else {
         // Row Layout (Left/Right)
@@ -113,8 +119,18 @@ export function renderCardButton(
         imgArea.style.width = `${layout.imgRatio}%`;
     }
 
-    imgArea.style.background = "var(--interactive-accent)";
-    if (!btn.picture && !btn.icon) imgArea.style.opacity = "0.7"; // Empty placeholder
+    // V3.9.1 Fix: Apply card color to image area if set (looks better for icon-only cards)
+    const hasContent = !!(btn.picture || btn.icon);
+    const hasColor = !!bgColor;
+
+    imgArea.style.background = bgColor || "var(--interactive-accent)";
+
+    // Only reduce opacity if there is NO content AND NO custom color
+    if (!hasContent && !hasColor) {
+        imgArea.style.opacity = "0.7";
+    } else {
+        imgArea.style.opacity = "1"; // Reset for re-renders
+    }
 
     imgArea.style.display = "flex";
     imgArea.style.alignItems = "center";

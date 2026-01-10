@@ -44,8 +44,15 @@ export class CardWizardModal extends Modal {
         viewContainer.style.flexDirection = "column";
 
         if (this.editingIndex !== null) {
-            this.isEditorView = true;
-            new WizardEditorView(this, this.plugin, this.buttons[this.editingIndex], this.editingIndex).render(viewContainer);
+            const btn = this.buttons[this.editingIndex];
+            if (btn) {
+                this.isEditorView = true;
+                new WizardEditorView(this, this.plugin, btn, this.editingIndex).render(viewContainer);
+            } else {
+                this.editingIndex = null;
+                this.isEditorView = false;
+                new WizardListView(this, this.plugin, this.buttons).render(viewContainer);
+            }
         } else {
             this.isEditorView = false;
             new WizardListView(this, this.plugin, this.buttons).render(viewContainer);

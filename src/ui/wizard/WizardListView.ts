@@ -91,13 +91,60 @@ export class WizardListView {
         ratioValue.style.minWidth = "40px";
 
         ratioSlider.oninput = () => {
-            const val = ratioSlider.value;
+            const val = parseInt(ratioSlider.value);
             ratioValue.setText(`${val}%`);
-            const grid = scrollWrapper.querySelector(".card-buttons-wizard-preview") as HTMLElement;
-            if (grid) grid.style.setProperty("--img-ratio", `${val}%`);
+
+            // Re-select grid to be safe (though closure variable should work)
+            const gridEl = scrollWrapper.querySelector(".card-buttons-wizard-preview") as HTMLElement;
+            if (!gridEl) return;
+
+            // Update CSS Variable for Fixed Mode (handled by CSS or renderer logic in strict sense)
+            gridEl.style.setProperty("--img-ratio", `${val}%`);
+
+            // Manual DOM update for Immediate Feedback
+            const isColumn = (this.modal.direction === "top" || this.modal.direction === "bottom");
+            const isAuto = (!this.modal.ratio || this.modal.ratio === "auto");
+
+            const imgAreas = gridEl.querySelectorAll(".card-img-area");
+            imgAreas.forEach((el) => {
+                const area = el as HTMLElement;
+                if (isColumn) {
+                    if (isAuto) {
+                        // Formula: ratio = imgRatio / textRatio
+                        // imgRatio = val. textRatio = 100 - val.
+                        if (val >= 95) {
+                            area.style.height = "auto"; area.style.aspectRatio = "10"; // Max out
+                        } else if (val <= 5) {
+                            area.style.height = "auto"; area.style.aspectRatio = "0.1"; // Min out
+                        } else {
+                            const ratioVal = val / (100 - val);
+                            area.style.height = "auto";
+                            area.style.aspectRatio = `${ratioVal * 1.5}`; // 1.5 correction factor
+                        }
+                    } else {
+                        // Fixed Mode
+                        area.style.height = `${val}%`;
+                        // Reset auto props
+                        area.style.aspectRatio = "";
+                    }
+                    area.style.width = "100%";
+                } else {
+                    // Row Mode
+                    area.style.width = `${val}%`;
+                    area.style.height = "100%";
+                    area.style.aspectRatio = "";
+                }
+            });
         };
         ratioSlider.onchange = () => {
             this.modal.imgRatio = parseInt(ratioSlider.value);
+            // No need to full render if we updated DOM, but calling render ensures consistency
+            // this.modal.render(); 
+            // Actually, keep render on change to ensure state is perfectly synced and any side effects run
+            // But if it flickers, maybe remove it. For now, let's trust the oninput update and just save state.
+            // But wait, renderCardButton recreates elements. If we don't render, next time something triggers render it will look right.
+            // Let's call render() to be safe, user won't notice on mouse up.
+            this.modal.render();
         };
 
         // --- Visual Grid ---

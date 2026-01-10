@@ -68,10 +68,11 @@ export class WizardEditorView {
         body.style.display = "flex"; body.style.gap = "20px";
         body.style.flex = "1";
         body.style.overflowY = "auto";
+        body.style.minHeight = "0"; // V3.9.1 Fix: Prevent overflow
         body.style.padding = "20px";
 
-        const left = body.createEl("div"); left.style.flex = "1";
-        const right = body.createEl("div"); right.style.flex = "1";
+        const left = body.createEl("div"); left.style.flex = "1"; left.style.minWidth = "0"; // Prevent flex item blowout
+        const right = body.createEl("div"); right.style.flex = "1"; right.style.minWidth = "0";
 
         // --- Left: Appearance ---
         left.createEl("h4", { text: "외관 (Appearance)" });
