@@ -69,7 +69,8 @@ export class CardWizardModal extends Modal {
         if (settingMatch && settingMatch[1]) {
             const lines = settingMatch[1].split("\n");
             lines.forEach(line => {
-                const parts = line.split(":");
+                const separator = line.includes("|") ? "|" : ":";
+                const parts = line.split(separator);
                 if (parts.length < 2) return;
                 const key = parts[0]?.trim().toLowerCase();
                 const val = parts[1]?.trim();

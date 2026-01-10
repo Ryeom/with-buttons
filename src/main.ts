@@ -305,7 +305,7 @@ class CardBlockRenderer extends MarkdownRenderChild {
 		let descSize = "11px";
 		let styleId = "";
 		let imgRatioStr = "60";
-		let direction = "vertical";
+		let direction = "top"; // Default to Top (Column)
 
 		if (settingSource) {
 			settingSource.split("\n").forEach(line => {
@@ -320,7 +320,10 @@ class CardBlockRenderer extends MarkdownRenderChild {
 					if (key === "desc-size") descSize = value.endsWith("px") ? value : `${value}px`;
 					if (key === "style") styleId = value;
 					if (key === "img-ratio") imgRatioStr = value.replace("%", "");
-					if (key === "direction") direction = value.toLowerCase();
+					if (key === "direction") {
+						const val = value.toLowerCase();
+						direction = (val === "vertical") ? "top" : val;
+					}
 				}
 			});
 		}
@@ -365,6 +368,7 @@ class CardBlockRenderer extends MarkdownRenderChild {
 		container.style.gridAutoRows = "minmax(min-content, max-content)";
 		container.style.gap = "20px";
 		container.style.alignItems = "start";
+		container.style.padding = "20px"; // V3.9.1 Fix: Prevent shadow clipping
 
 		cardSections.forEach((section) => {
 			const data = this.plugin.parseSection(section);
