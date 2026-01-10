@@ -61,19 +61,22 @@ export class WizardListView {
         dirSelect.value = this.modal.direction;
         dirSelect.onchange = () => { this.modal.direction = dirSelect.value as any; this.modal.render(); };
 
-        // 3. Aspect Ratio (V3.8)
+        // 3. Aspect Ratio (V3.8) - Custom Input (V4.2)
         const ratioDiv = settingBar.createEl("div");
         ratioDiv.createEl("span", { text: "비율: " }).style.fontWeight = "bold";
-        const ratioSelect = ratioDiv.createEl("select");
-        ratioSelect.style.marginLeft = "5px";
-        ratioSelect.createEl("option", { text: "자동 (Auto/Content)", value: "auto" });
-        ratioSelect.createEl("option", { text: "1:1 (정사각형)", value: "1/1" });
-        ratioSelect.createEl("option", { text: "16:9 (와이드)", value: "16/9" });
-        ratioSelect.createEl("option", { text: "4:3 (일반)", value: "4/3" });
-        ratioSelect.createEl("option", { text: "3:4 (포스터)", value: "3/4" });
-        ratioSelect.createEl("option", { text: "2:1 (파노라마)", value: "2/1" });
-        ratioSelect.value = this.modal.ratio;
-        ratioSelect.onchange = () => { this.modal.ratio = ratioSelect.value; this.modal.render(); };
+        const ratioInput = ratioDiv.createEl("input", { type: "text" });
+        ratioInput.placeholder = "e.g. auto, 16/9, 2.5";
+        ratioInput.style.marginLeft = "5px";
+        ratioInput.style.width = "120px";
+        ratioInput.value = this.modal.ratio;
+        ratioInput.onchange = () => {
+            this.modal.ratio = ratioInput.value.trim() || "auto";
+            this.modal.render();
+        };
+        // Add minimal tooltip/help
+        const ratioHelp = ratioDiv.createEl("span", { text: " (auto, 1:1, 16/9...)" });
+        ratioHelp.style.fontSize = "0.8em";
+        ratioHelp.style.color = "var(--text-muted)";
 
         // 4. Image Ratio Slider
         const imgRatioDiv = settingBar.createEl("div");
@@ -119,7 +122,7 @@ export class WizardListView {
                         } else {
                             const ratioVal = val / (100 - val);
                             area.style.height = "auto";
-                            area.style.aspectRatio = `${ratioVal * 1.5}`; // 1.5 correction factor
+                            area.style.aspectRatio = `${ratioVal * 2.5}`; // 2.5 correction factor (V4.2)
                         }
                     } else {
                         // Fixed Mode

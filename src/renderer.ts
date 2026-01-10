@@ -111,7 +111,7 @@ export function renderCardButton(
             // Multiplier to make it feel natural (60% -> ~1.77 for 16:9)
             // 60/40 = 1.5. 
             imgArea.style.height = "auto";
-            imgArea.style.aspectRatio = `${ratioVal * 1.5}`; // 1.5 factor for wider default
+            imgArea.style.aspectRatio = `${ratioVal * 2.5}`; // 2.5 factor for wider default (V4.2 User Feedback)
         }
     } else {
         // Row Layout (Left/Right)
