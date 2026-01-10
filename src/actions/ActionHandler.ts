@@ -1,5 +1,5 @@
 
-import { App, Notice, TFile, Command, Modal, Setting } from "obsidian";
+import { App, Notice, TFile, Command, Modal, Setting, ButtonComponent, TextComponent, TextAreaComponent } from "obsidian";
 
 /**
  * Interface for any action type (Command, URL, File Open, etc.)
@@ -48,7 +48,7 @@ export class CommandAction implements ActionStrategy {
     }
 
     renderSettings(container: HTMLElement, currentVal: string, currentArg: string, onChange: (v: string) => void, app: App) {
-        const s = new Setting(container).setName("Command ID").addText(t => t.setValue(currentVal).onChange(v => onChange(v)));
+        const s = new Setting(container).setName("Command ID").addText((t: TextComponent) => t.setValue(currentVal).onChange((v: string) => onChange(v)));
 
         // Command Preview
         const cmd = (app as any).commands.findCommand(currentVal);
@@ -85,8 +85,8 @@ export class UrlAction implements ActionStrategy {
     }
 
     renderSettings(container: HTMLElement, currentVal: string, currentArg: string, onChange: (v: string, a?: string) => void) {
-        new Setting(container).setName("URL").addText(t => t.setPlaceholder("https://...").setValue(currentVal).onChange(v => onChange(v, currentArg)));
-        new Setting(container).setName("모바일용 URL (선택)").addText(t => t.setValue(currentArg || "").onChange(v => onChange(currentVal, v)));
+        new Setting(container).setName("URL").addText((t: TextComponent) => t.setPlaceholder("https://...").setValue(currentVal).onChange((v: string) => onChange(v, currentArg)));
+        new Setting(container).setName("모바일용 URL (선택)").addText((t: TextComponent) => t.setValue(currentArg || "").onChange((v: string) => onChange(currentVal, v)));
     }
 }
 
@@ -102,7 +102,7 @@ export class OpenAction implements ActionStrategy {
     }
 
     renderSettings(container: HTMLElement, currentVal: string, currentArg: string, onChange: (v: string) => void, app: App) {
-        const s = new Setting(container).setName("경로 (Path)").addText(t => t.setValue(currentVal).onChange(v => onChange(v)));
+        const s = new Setting(container).setName("경로 (Path)").addText((t: TextComponent) => t.setValue(currentVal).onChange((v: string) => onChange(v)));
         // Ideally we'd invoke the FileSuggester here
         s.addButton(b => b.setIcon("search").onClick(() => {
             new Notice("파일 경로를 입력하세요.");
@@ -127,8 +127,8 @@ export class ToggleAction implements ActionStrategy {
     }
 
     renderSettings(container: HTMLElement, currentVal: string, currentArg: string, onChange: (v: string, a?: string) => void, app: App) {
-        new Setting(container).setName("속성 키 (Property Key)").addText(t => t.setValue(currentVal).onChange(v => onChange(v, currentArg)));
-        new Setting(container).setName("파일명 (선택)").addText(t => t.setValue(currentArg || "").onChange(v => onChange(currentVal, v)));
+        new Setting(container).setName("속성 키 (Property Key)").addText((t: TextComponent) => t.setValue(currentVal).onChange((v: string) => onChange(v, currentArg)));
+        new Setting(container).setName("파일명 (선택)").addText((t: TextComponent) => t.setValue(currentArg || "").onChange((v: string) => onChange(currentVal, v)));
     }
 }
 
@@ -143,7 +143,7 @@ export class CopyAction implements ActionStrategy {
     }
 
     renderSettings(container: HTMLElement, currentVal: string, currentArg: string, onChange: (v: string) => void) {
-        new Setting(container).setName("복사할 텍스트").addTextArea(t => t.setValue(currentVal).onChange(v => onChange(v)));
+        new Setting(container).setName("복사할 텍스트").addTextArea((t: TextAreaComponent) => t.setValue(currentVal).onChange((v: string) => onChange(v)));
     }
 }
 
@@ -164,8 +164,8 @@ export class JsAction implements ActionStrategy {
     }
 
     renderSettings(container: HTMLElement, currentVal: string, currentArg: string, onChange: (v: string) => void) {
-        new Setting(container).setName("JS 코드").addTextArea(t => {
-            t.setValue(currentVal).onChange(v => onChange(v));
+        new Setting(container).setName("JS 코드").addTextArea((t: TextAreaComponent) => {
+            t.setValue(currentVal).onChange((v: string) => onChange(v));
             t.inputEl.style.minHeight = "150px";
         });
     }
@@ -183,8 +183,8 @@ export class CreateAction implements ActionStrategy {
     }
 
     renderSettings(container: HTMLElement, currentVal: string, currentArg: string, onChange: (v: string, a?: string) => void, app: App) {
-        new Setting(container).setName("템플릿 경로").addText(t => t.setValue(currentVal).onChange(v => onChange(v, currentArg)));
-        new Setting(container).setName("JSON 인자").addTextArea(t => t.setValue(currentArg || "").onChange(v => onChange(currentVal, v)));
+        new Setting(container).setName("템플릿 경로").addText((t: TextComponent) => t.setValue(currentVal).onChange((v: string) => onChange(v, currentArg)));
+        new Setting(container).setName("JSON 인자").addTextArea((t: TextAreaComponent) => t.setValue(currentArg || "").onChange((v: string) => onChange(currentVal, v)));
     }
 }
 

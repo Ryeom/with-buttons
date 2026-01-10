@@ -14,6 +14,7 @@ import { CardWizardModal } from "./ui/wizard/WizardModal";
 interface CardData {
 	title?: string;
 	desc?: string;
+	icon?: string;
 	picture?: string;
 	action?: string;
 	color?: string;
@@ -373,6 +374,9 @@ class CardBlockRenderer extends MarkdownRenderChild {
 			if (data.desc) data.desc = resolveDynamicText(this.plugin.app, data.desc);
 			if (data.action) data.action = resolveDynamicText(this.plugin.app, data.action);
 
+			const rawColor = data.color ? resolveDynamicText(this.plugin.app, data.color) : "";
+			const rawTextColor = data.textColor ? resolveDynamicText(this.plugin.app, data.textColor) : "";
+
 			const rawIf = data.if ? resolveDynamicText(this.plugin.app, data.if) : "true";
 			if (rawIf === "false" || rawIf === "null" || rawIf === "undefined") return;
 
@@ -389,35 +393,14 @@ class CardBlockRenderer extends MarkdownRenderChild {
 				title: data.title || "",
 				desc: data.desc || "",
 				icon: data.icon || "",
-				color: data.color || "",
+				color: rawColor, // Use processed color
 				picture: data.picture || "",
 				action: data.action || "",
-				// ActionType not explicitly needed for visual render, but kept for interface match if expanded
 				actionType: "command"
 			};
 
-			// Dynamic resolution happens before passing to config
-			// However, renderer expects raw config. The renderer applies color logic. 
-			// Wait, renderer logic expects btn.color to be the value.
-			// In main.ts, we resolved dynamic colors (lines 493-499).
-			// Let's pass the resolved color as 'color' to the renderer.
-
-			// Re-map resolved colors to config
-			const resolvedBtnConfig = {
-				...btnConfig,
-				color: rawColor || btnConfig.color // prioritization handled
-			};
-
-			// Wait, previous main.ts logic had complex color priority (Palette > Raw > Auto-contrast).
-			// The renderer has: let bgColor = layout.palettes[btn.color] || btn.color;
-			// If main.ts passes "red" (key), renderer does palettes["red"] -> "#ff0000". Correct.
-			// If main.ts passes "#123", renderer does palettes["#123"] (undef) || "#123". Correct.
-			// Does main.ts resolve dynamic text first?
-			// Lines 493: let rawColor = resolveDynamicText...
-			// So we should pass 'rawColor' to renderer as 'color'.
-
 			const cardEl = renderCardButton(
-				{ ...btnConfig, color: rawColor },
+				btnConfig,
 				container,
 				layoutConfig,
 				this.plugin.app,
@@ -426,9 +409,7 @@ class CardBlockRenderer extends MarkdownRenderChild {
 				}
 			);
 
-			// Apply Text Color Override if exists (Renderer handles BG, but Main had explicit Text Color logic)
-			// Renderer handles simple auto-contrast.
-			// Main had: if (rawTextColor) cardEl.style.color = rawTextColor;
+			// Apply Text Color Override
 			if (rawTextColor) cardEl.querySelector(".card-info")?.setAttribute("style", `color: ${rawTextColor} !important`);
 
 			// Mouse Events for Z-Index (Preserve)
