@@ -1,7 +1,4 @@
-import {
-	Plugin, TFile, Notice, setIcon,
-	MarkdownRenderChild, App
-} from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, TFile, WorkspaceLeaf, setIcon, MarkdownRenderChild, MarkdownPostProcessorContext } from "obsidian";
 import {
 	ViewUpdate, ViewPlugin, DecorationSet, Decoration,
 	EditorView, WidgetType
@@ -10,6 +7,7 @@ import { DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab } from "./settings
 import FileSuggest from './file-suggest';
 import ActionSuggest from './action-suggest';
 import SettingSuggest from 'setting-suggest';
+import { CardWizardModal } from "./wizard";
 
 interface CardData {
 	title?: string;
@@ -26,6 +24,18 @@ export default class MyPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		// Button Wizard Command
+		this.addCommand({
+			id: 'insert-card-buttons',
+			name: '버튼 생성 마법사 (Insert Card Buttons)',
+			editorCallback: (editor: Editor, view: MarkdownView) => {
+				new CardWizardModal(this.app, this, (result) => {
+					editor.replaceSelection(result);
+				}).open();
+			}
+		});
+
 		this.registerEditorSuggest(new FileSuggest(this.app));
 		this.registerEditorSuggest(new ActionSuggest(this.app));
 		this.registerEditorSuggest(new SettingSuggest(this.app));
@@ -42,7 +52,7 @@ export default class MyPlugin extends Plugin {
 		});
 
 		this.registerMarkdownCodeBlockProcessor("card-buttons", (source, el, ctx) => {
-			const child = new CardBlockRenderer(el, source, this);
+			const child = new CardBlockRenderer(el, source, this, ctx);
 			ctx.addChild(child);
 		});
 		this.addSettingTab(new SampleSettingTab(this.app, this));
@@ -318,7 +328,7 @@ class InlineButtonChild extends MarkdownRenderChild {
 	}
 }
 class CardBlockRenderer extends MarkdownRenderChild {
-	constructor(containerEl: HTMLElement, private source: string, private plugin: MyPlugin) {
+	constructor(containerEl: HTMLElement, private source: string, private plugin: MyPlugin, private ctx: MarkdownPostProcessorContext) {
 		super(containerEl);
 	}
 
@@ -330,12 +340,73 @@ class CardBlockRenderer extends MarkdownRenderChild {
 		this.registerEvent(this.plugin.app.vault.on("create", debouncedRender));
 		this.registerEvent(this.plugin.app.vault.on("delete", debouncedRender));
 		this.registerEvent(this.plugin.app.vault.on("rename", debouncedRender));
-		this.registerEvent(this.plugin.app.vault.on("modify", debouncedRender)); // Also update on file changes (e.g. frontmatter)
+		this.registerEvent(this.plugin.app.vault.on("modify", debouncedRender));
 	}
 
 	render() {
 		this.containerEl.empty();
 		const el = this.containerEl;
+		el.style.position = "relative"; // For edit button positioning
+
+		// Add Edit Button
+		// Only show if we are in a Markdown Source View (Live Preview) to avoid clutter in Reading Mode (which might be desired, but user asked for "Edit Mode only")
+		// However, determining exact mode from renderer is tricky. 
+		// We will infer it by checking if we can find an editor for this view.
+		// Also user requested "Bottom Right".
+
+		const editBtn = el.createEl("div", { cls: "card-buttons-edit" });
+		editBtn.style.position = "absolute";
+		editBtn.style.bottom = "5px"; editBtn.style.right = "5px"; // Bottom Right
+		editBtn.style.top = "auto";
+		editBtn.style.zIndex = "20";
+		editBtn.style.cursor = "pointer";
+		editBtn.style.opacity = "0";
+		editBtn.style.transition = "opacity 0.2s";
+		setIcon(editBtn, "pencil");
+		editBtn.style.background = "var(--background-primary)";
+		editBtn.style.padding = "4px";
+		editBtn.style.borderRadius = "4px";
+		editBtn.style.border = "1px solid var(--background-modifier-border)";
+		editBtn.style.display = "none"; // Hidden by default
+
+		// Show only on hover AND if in source mode (we'll check parent class)
+		// Actually, just standard hover, but we ensure it's hidden if not appropriate via CSS or JS check
+		// User said "only in edit mode".
+		// Let's use a simple check: if the container is inside .markdown-source-view
+		// We do this check on mouseenter to be sure of current state
+		el.addEventListener("mouseenter", () => {
+			if (el.closest(".markdown-source-view")) {
+				editBtn.style.display = "block";
+				setTimeout(() => editBtn.style.opacity = "1", 10);
+			}
+		});
+		el.addEventListener("mouseleave", () => {
+			editBtn.style.opacity = "0";
+			setTimeout(() => editBtn.style.display = "none", 200);
+		});
+
+		// Edit Button Logic
+		editBtn.onclick = (e) => {
+			e.stopPropagation();
+			const modal = new CardWizardModal(this.plugin.app, this.plugin, (newCode) => {
+				const sectionInfo = this.ctx.getSectionInfo(this.containerEl);
+				if (sectionInfo) {
+					const view = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+					if (view) {
+						const editor = view.editor;
+
+						// V3.7.2 Fix: Do NOT strip wrappers. generateCode returns the full block, and replacing the range covers the full block.
+						const from = { line: sectionInfo.lineStart, ch: 0 };
+						const to = { line: sectionInfo.lineEnd, ch: editor.getLine(sectionInfo.lineEnd).length };
+						editor.replaceRange(newCode, from, to);
+					}
+				}
+			});
+			modal.importFromSource(this.source);
+			modal.open();
+		};
+
+
 		const parts = this.source.split("[card]");
 		const firstPart = parts[0] || "";
 		const settingSource = firstPart.includes("[setting]") ? firstPart.replace("[setting]", "").trim() : "";
@@ -400,9 +471,12 @@ class CardBlockRenderer extends MarkdownRenderChild {
 			});
 		}
 
+		// V3.9: Robust Grid Layout
 		container.style.display = "grid";
-		container.style.gridTemplateColumns = `repeat(${cardSections.length || 1}, 1fr)`;
-		container.style.gap = "10px";
+		container.style.gridTemplateColumns = `repeat(auto-fill, minmax(200px, 1fr))`;
+		container.style.gridAutoRows = "minmax(min-content, max-content)";
+		container.style.gap = "20px";
+		container.style.alignItems = "start";
 
 		cardSections.forEach((section) => {
 			const data = this.plugin.parseSection(section);
@@ -435,11 +509,41 @@ class CardBlockRenderer extends MarkdownRenderChild {
 				if (rawColor === "red" || rawColor.startsWith("#ff0000") || rawColor === "#f00") cardEl.style.color = "white";
 			}
 
-			const isVertical = direction === "vertical";
+			// --- V3.9 Layout Logic ---
+			let dir = direction.toLowerCase();
+			if (dir === "vertical") dir = "top";
+			else if (dir === "horizontal") dir = "left";
+			if (!["top", "bottom", "left", "right"].includes(dir)) dir = "top"; // Default
+
+			const isColumn = (dir === "top" || dir === "bottom");
+			// Check if localRatio is valid fixed ratio (not auto, not empty, not 1/1 if default is different?)
+			// localRatio was parsed as "1 / 1" string or similar. Initialize it to "auto" if not present in input?
+			// Line 420: let localRatio = "1 / 1"; -> Change to "auto" default? 
+			// Wait, the parser sets it. I should check if it's "auto".
+			const isAuto = (localRatio === "auto" || !localRatio || localRatio === "undefined");
+
 			cardEl.style.display = "flex";
-			cardEl.style.flexDirection = isVertical ? "column" : "row";
-			cardEl.style.setProperty("aspect-ratio", localRatio, "important");
+			if (dir === "top") cardEl.style.flexDirection = "column";
+			else if (dir === "bottom") cardEl.style.flexDirection = "column-reverse";
+			else if (dir === "left") cardEl.style.flexDirection = "row";
+			else if (dir === "right") cardEl.style.flexDirection = "row-reverse";
+
 			cardEl.style.overflow = "hidden";
+
+			if (!isAuto) {
+				// Fixed Ratio Mode
+				cardEl.style.aspectRatio = localRatio;
+				cardEl.style.height = "auto";
+				cardEl.style.width = "100%";
+			} else {
+				// Auto Mode
+				cardEl.style.height = "100%";
+				if (isColumn && !styleId) {
+					cardEl.style.minHeight = "200px";
+				} else if (!isColumn) {
+					cardEl.style.height = "160px";
+				}
+			}
 
 			cardEl.addEventListener('mouseenter', () => { cardEl.style.zIndex = "100"; });
 			cardEl.addEventListener('mouseleave', () => { cardEl.style.zIndex = "1"; });
@@ -454,9 +558,16 @@ class CardBlockRenderer extends MarkdownRenderChild {
 					const imgDiv = cardEl.createEl("div", { cls: isOnlyImage ? "card-img-container is-only-image" : "card-img-container" });
 					imgDiv.style.flexShrink = "0";
 
-					if (isVertical) {
+					// Size Logic (V3.9)
+					if (isColumn) {
 						imgDiv.style.width = "100%";
-						imgDiv.style.height = isOnlyImage ? "100%" : `${imgRatio}%`;
+						if (!isAuto) {
+							imgDiv.style.height = isOnlyImage ? "100%" : `${imgRatio}%`;
+						} else {
+							// Auto Mode: Natural Image Height (Aspect Ratio 16/9)
+							imgDiv.style.height = "auto";
+							imgDiv.style.aspectRatio = "16/9";
+						}
 					} else {
 						imgDiv.style.width = isOnlyImage ? "100%" : `${imgRatio}%`;
 						imgDiv.style.height = "100%";
@@ -474,22 +585,45 @@ class CardBlockRenderer extends MarkdownRenderChild {
 				infoEl.style.display = "flex";
 				infoEl.style.flexDirection = "column";
 				infoEl.style.flexGrow = "1";
+				infoEl.style.overflow = "hidden"; // Prevent text overflow
 
-				if (isVertical) {
-					infoEl.style.width = "100%";
-					infoEl.style.height = `${100 - imgRatio}%`;
-				} else {
+				// Info Size Logic
+				// In Flex column, we just let it grow (flex: 1). 
+				// In Row, we might need width constraint?
+				if (!isColumn) {
+					// Row Layout: Info width is remainder
 					infoEl.style.width = `${100 - imgRatio}%`;
 					infoEl.style.height = "100%";
+				} else {
+					infoEl.style.width = "100%";
+					// If Fixed Ratio, we might need to constrain height if not using Flex?
+					// Flex grow handles it.
+					if (!isAuto) {
+						// But if imgDiv is fixed %, infoDiv should fill remainder?
+						// In Flex column, if imgDiv is fixed height %, infoDiv flex-grow fills well.
+						// EXCEPT if parent has no specific height?
+						// Aspect-ratio on parent + flex column works.
+					}
 				}
 
 				if (data.title) {
 					const tEl = infoEl.createEl("div", { text: data.title, cls: "card-title" });
 					tEl.style.fontSize = titleSize; tEl.style.lineHeight = "1.2"; tEl.style.marginBottom = "2px";
+					tEl.style.fontWeight = "bold";
+					tEl.style.whiteSpace = "nowrap"; tEl.style.overflow = "hidden"; tEl.style.textOverflow = "ellipsis";
 				}
 				if (data.desc) {
 					const dEl = infoEl.createEl("p", { text: data.desc, cls: "card-desc" });
 					dEl.style.fontSize = descSize; dEl.style.lineHeight = "1.2"; dEl.style.margin = "0";
+
+					if (isAuto && isColumn) {
+						dEl.style.whiteSpace = "pre-wrap"; // Let text expand naturally
+					} else {
+						dEl.style.display = "-webkit-box";
+						dEl.style.webkitLineClamp = "2";
+						dEl.style.webkitBoxOrient = "vertical";
+						dEl.style.overflow = "hidden";
+					}
 				}
 			}
 
