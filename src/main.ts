@@ -306,6 +306,7 @@ class CardBlockRenderer extends MarkdownRenderChild {
 		let styleId = "";
 		let imgRatioStr = "60";
 		let direction = "top"; // Default to Top (Column)
+		let gridStr = "";
 
 		if (settingSource) {
 			settingSource.split("\n").forEach(line => {
@@ -320,6 +321,7 @@ class CardBlockRenderer extends MarkdownRenderChild {
 					if (key === "desc-size") descSize = value.endsWith("px") ? value : `${value}px`;
 					if (key === "style") styleId = value;
 					if (key === "img-ratio") imgRatioStr = value.replace("%", "");
+					if (key === "grid") gridStr = value;
 					if (key === "direction") {
 						const val = value.toLowerCase();
 						direction = (val === "vertical") ? "top" : val;
@@ -364,7 +366,26 @@ class CardBlockRenderer extends MarkdownRenderChild {
 
 		// V3.9: Robust Grid Layout
 		container.style.display = "grid";
-		container.style.gridTemplateColumns = `repeat(auto-fill, minmax(200px, 1fr))`;
+
+		// Parse Grid (NxM or N*M)
+		// N = Rows (primary for limit), M = Cols (primary for layout)
+		let cols = 0;
+		if (gridStr) {
+			const match = gridStr.match(/(\d+)[\*xX](\d+)/);
+			if (match && match[1]) {
+				cols = parseInt(match[1]); // N is Columns
+			}
+		}
+
+		if (cols > 0) {
+			// Fixed Columns (M)
+			// minmax(0, 1fr) ensures proper resizing even with content
+			container.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+		} else {
+			// Default Auto-Fill
+			container.style.gridTemplateColumns = `repeat(auto-fill, minmax(200px, 1fr))`;
+		}
+
 		container.style.gridAutoRows = "minmax(min-content, max-content)";
 		container.style.gap = "20px";
 		container.style.alignItems = "start";

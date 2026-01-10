@@ -1,5 +1,5 @@
 import { ButtonConfig } from "./shared";
-import { Setting } from "obsidian";
+import { Setting, Notice } from "obsidian";
 import MyPlugin from "../../main";
 import { renderCardButton } from "../../renderer";
 import { CardWizardModal } from "./WizardModal";
@@ -147,9 +147,67 @@ export class WizardListView {
             this.modal.render();
         };
 
+        // 5. Grid Dimensions (Cols x Rows) - Split Inputs (V4.2)
+        const gridDiv = settingBar.createEl("div");
+        gridDiv.style.display = "flex"; gridDiv.style.alignItems = "center"; gridDiv.style.gap = "5px";
+        gridDiv.createEl("span", { text: "Grid: " }).style.fontWeight = "bold";
+
+        // Parse current value
+        let currentCols = 3;
+        let currentRows = 2;
+        if (this.modal.grid) {
+            const match = this.modal.grid.match(/(\d+)[\*xX](\d+)/);
+            if (match && match[1] && match[2]) {
+                currentCols = parseInt(match[1]);
+                currentRows = parseInt(match[2]);
+            }
+        }
+
+        // Col Input
+        const colInput = gridDiv.createEl("input", { type: "number" });
+        colInput.placeholder = "C";
+        colInput.min = "1";
+        colInput.max = "6"; // Hard Limit
+        colInput.style.width = "50px";
+        colInput.value = currentCols.toString();
+
+        gridDiv.createEl("span", { text: "x" });
+
+        // Row Input
+        const rowInput = gridDiv.createEl("input", { type: "number" });
+        rowInput.placeholder = "R";
+        rowInput.min = "1";
+        rowInput.max = "20";
+        rowInput.style.width = "50px";
+        rowInput.value = currentRows.toString();
+
+        const updateGrid = () => {
+            let setsC = parseInt(colInput.value);
+            let setsR = parseInt(rowInput.value);
+
+            // Validation
+            if (setsC > 6) { setsC = 6; colInput.value = "6"; new Notice("⚠️ Max Columns: 6"); }
+            if (setsC < 1) { setsC = 1; colInput.value = "1"; }
+            if (setsR < 1) { setsR = 1; rowInput.value = "1"; }
+
+            this.modal.grid = `${setsC}*${setsR}`;
+            this.modal.render();
+        };
+
+        colInput.onchange = updateGrid;
+        rowInput.onchange = updateGrid;
+
         // --- Visual Grid ---
         const h3 = scrollWrapper.createEl("h3", { text: "버튼 미리보기 (클릭하여 편집)" });
-        h3.style.marginBottom = "10px";
+        h3.style.marginBottom = "5px"; // Reduced margin for disclaimer
+
+        // Disclaimer (V4.2)
+        const disclaimer = scrollWrapper.createEl("div", { cls: "wizard-preview-disclaimer" });
+        disclaimer.setText("※ 실제 화면에서는 테마나 화면 크기에 따라 다르게 보일 수 있습니다.");
+        disclaimer.style.fontSize = "0.8em";
+        disclaimer.style.color = "var(--text-muted)";
+        disclaimer.style.marginBottom = "15px";
+        disclaimer.style.fontStyle = "italic";
 
         const grid = scrollWrapper.createEl("div");
         grid.addClass("card-buttons-wizard-preview");
@@ -158,7 +216,24 @@ export class WizardListView {
 
         // Layout Logic: Grid with Strict Auto Rows to prevent Overlap
         grid.style.display = "grid";
-        grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(200px, 1fr))`;
+
+        // V4.1: Match Preview to Grid Setting (Cols x Rows)
+        let cols = 0;
+        if (this.modal.grid) {
+            const match = this.modal.grid.match(/(\d+)[\*xX](\d+)/);
+            if (match && match[1]) {
+                cols = parseInt(match[1]); // 1st is Cols
+            }
+        }
+
+        if (cols > 0) {
+            // Fixed Columns (M)
+            grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+        } else {
+            // Default Auto-Fill
+            grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(200px, 1fr))`;
+        }
+
         grid.style.gap = "20px";
         grid.style.marginBottom = "20px";
         grid.style.gridAutoRows = "minmax(min-content, max-content)";
@@ -191,38 +266,51 @@ export class WizardListView {
             });
         });
 
-        // Add New Card
-        const addCard = grid.createEl("div");
-        addCard.style.border = "2px dashed var(--background-modifier-border)";
-        addCard.style.borderRadius = "8px";
+        // Add New Card (Enforce Limit)
+        const isLimitReached = this.isLimitReached();
+        const maxItems = this.getMaxItems();
 
-        // Height constraints for add card
-        if (this.modal.ratio !== "auto") {
-            addCard.style.aspectRatio = this.modal.ratio;
-        } else {
-            if (this.modal.direction === "top" || this.modal.direction === "bottom") {
-                addCard.style.minHeight = "240px";
-                addCard.style.height = "auto";
+        if (!isLimitReached) {
+            const addCard = grid.createEl("div");
+            addCard.style.border = "2px dashed var(--background-modifier-border)";
+            addCard.style.borderRadius = "8px";
+
+            // Height constraints for add card
+            if (this.modal.ratio !== "auto") {
+                addCard.style.aspectRatio = this.modal.ratio;
             } else {
-                addCard.style.height = "120px";
+                if (this.modal.direction === "top" || this.modal.direction === "bottom") {
+                    addCard.style.minHeight = "240px";
+                    addCard.style.height = "auto";
+                } else {
+                    addCard.style.height = "120px";
+                }
             }
+
+            addCard.style.display = "flex"; addCard.style.alignItems = "center"; addCard.style.justifyContent = "center";
+            addCard.style.cursor = "pointer"; addCard.style.opacity = "0.7";
+            addCard.onmouseover = () => addCard.style.opacity = "1";
+            addCard.onmouseout = () => addCard.style.opacity = "0.7";
+
+            const addText = addCard.createEl("div", { text: "+ 버튼 추가" });
+            addText.style.fontWeight = "bold"; addText.style.fontSize = "1.2em";
+
+            addCard.onclick = () => {
+                this.buttons.push({
+                    title: "새 버튼", desc: "", icon: "", color: "", picture: "", actionType: "command", action: ""
+                });
+                this.modal.editingIndex = this.buttons.length - 1;
+                this.modal.render();
+            };
+        } else {
+            // Limit Reached Message
+            const limitMsg = grid.createEl("div");
+            limitMsg.style.gridColumn = "1 / -1";
+            limitMsg.style.textAlign = "center";
+            limitMsg.style.padding = "20px";
+            limitMsg.style.color = "var(--text-muted)";
+            limitMsg.createEl("span", { text: `🚫 최대 개수 도달 (${this.buttons.length}/${maxItems})` });
         }
-
-        addCard.style.display = "flex"; addCard.style.alignItems = "center"; addCard.style.justifyContent = "center";
-        addCard.style.cursor = "pointer"; addCard.style.opacity = "0.7";
-        addCard.onmouseover = () => addCard.style.opacity = "1";
-        addCard.onmouseout = () => addCard.style.opacity = "0.7";
-
-        const addText = addCard.createEl("div", { text: "+ 버튼 추가" });
-        addText.style.fontWeight = "bold"; addText.style.fontSize = "1.2em";
-
-        addCard.onclick = () => {
-            this.buttons.push({
-                title: "새 버튼", desc: "", icon: "", color: "", picture: "", actionType: "command", action: ""
-            });
-            this.modal.editingIndex = this.buttons.length - 1;
-            this.modal.render();
-        };
 
         // --- Footer ---
         const footer = container.createEl("div");
@@ -236,5 +324,21 @@ export class WizardListView {
                 this.modal.submit();
                 this.modal.close();
             }));
+    }
+    getMaxItems(): number {
+        if (!this.modal.grid) return 999;
+        const match = this.modal.grid.match(/(\d+)[\*xX](\d+)/);
+        if (match && match[1] && match[2]) {
+            const cols = parseInt(match[1]); // Swapped: 1 is Cols
+            const rows = parseInt(match[2]); // Swapped: 2 is Rows
+            const total = cols * rows;
+            const MAX_SAFE_LIMIT = 50;
+            return Math.min(total, MAX_SAFE_LIMIT);
+        }
+        return 999;
+    }
+
+    isLimitReached(): boolean {
+        return this.buttons.length >= this.getMaxItems();
     }
 }

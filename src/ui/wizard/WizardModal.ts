@@ -9,6 +9,7 @@ export class CardWizardModal extends Modal {
     public direction: "top" | "bottom" | "left" | "right" = "top";
     public imgRatio: number = 60;
     public ratio: string = "auto";
+    public grid: string = ""; // V4.1: Grid Dimensions (NxM)
 
     public buttons: ButtonConfig[] = [];
     public editingIndex: number | null = null;
@@ -82,6 +83,7 @@ export class CardWizardModal extends Modal {
                 }
                 if (key === "img-ratio") this.imgRatio = parseInt(val || "60") || 60;
                 if (key === "ratio") this.ratio = val || "auto";
+                if (key === "grid") this.grid = val || "";
             });
         }
 
@@ -127,12 +129,13 @@ export class CardWizardModal extends Modal {
 
     generateCode(): string {
         const parts = [];
-        if (this.styleId || this.direction !== "top" || this.imgRatio !== 60 || (this.ratio && this.ratio !== "auto")) {
+        if (this.styleId || this.direction !== "top" || this.imgRatio !== 60 || (this.ratio && this.ratio !== "auto") || this.grid) {
             parts.push("[setting]");
             if (this.styleId) parts.push(`style: ${this.styleId}`);
             if (this.direction) parts.push(`direction: ${this.direction}`);
             if (this.imgRatio !== 60) parts.push(`img-ratio: ${this.imgRatio}%`);
             if (this.ratio && this.ratio !== "auto") parts.push(`ratio: ${this.ratio}`);
+            if (this.grid) parts.push(`grid: ${this.grid}`);
             parts.push("");
         }
 
