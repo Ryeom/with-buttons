@@ -3,11 +3,13 @@ import {
 	ViewUpdate, ViewPlugin, DecorationSet, Decoration,
 	EditorView, WidgetType
 } from "@codemirror/view";
+import { renderCardButton } from "./renderer";
 import { DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab } from "./settings";
+import { actionRegistry } from "./actions/ActionHandler";
 import FileSuggest from './file-suggest';
 import ActionSuggest from './action-suggest';
 import SettingSuggest from 'setting-suggest';
-import { CardWizardModal } from "./wizard";
+import { CardWizardModal } from "./ui/wizard/WizardModal";
 
 interface CardData {
 	title?: string;
@@ -67,145 +69,30 @@ export default class MyPlugin extends Plugin {
 		const val1 = parts[1] ?? "";
 		const val2 = parts[2] ?? val1;
 
-		switch (type) {
-			case "url":
-				if (!val1) return;
-				const mobileScheme = parts[2];
-				const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-				const finalDesktopUrl = val1.startsWith("http") ? val1 : `https://${val1}`;
-				if (isMobileDevice && mobileScheme) {
-					let appOpened = false;
-					const onVisibilityChange = () => { if (document.visibilityState === "hidden") appOpened = true; };
-					document.addEventListener("visibilitychange", onVisibilityChange, { once: true });
-					window.location.href = mobileScheme;
-					setTimeout(() => {
-						document.removeEventListener("visibilitychange", onVisibilityChange);
-						if (!appOpened) window.open(finalDesktopUrl);
-					}, 500);
-				} else { window.open(finalDesktopUrl); }
-				break;
-			case "copy":
-				if (!val2) return;
-				await navigator.clipboard.writeText(val2);
-				new Notice(`복사되었습니다: ${val2}`);
-				break;
-			case "command":
-				if (!val2) return;
-				const success = (this.app as any).commands.executeCommandById(val2);
-				if (!success) {
-					new Notice(`명령어 실행 실패: '${val2}' ID를 확인해주세요.`);
-					console.warn(`With Buttons: Command '${val2}' not found.`);
-				}
-				break;
-			case "open":
-				if (!val2) return;
-				await this.app.workspace.openLinkText(val2, "", true);
-				break;
-			case "search":
-				if (!val2) return;
-				const searchPlugin = (this.app as any).internalPlugins.getPluginById("global-search");
-				if (searchPlugin) searchPlugin.instance.openGlobalSearch(val2);
-				break;
-			case "create":
-				if (!val1) return;
-				const rawArgs = parts.slice(2).join("|");
-				this.createNewFileFromTemplate(val1, rawArgs);
-				break;
-			case "js":
-				if (!val2) return;
-				try {
-					const obsidian = require('obsidian');
-					new Function('app', 'Notice', 'obsidian', val2)(this.app, Notice, obsidian);
-				} catch (e) {
-					new Notice("JS 실행 오류 (콘솔 확인)");
-					console.error("JS Action Error:", e);
-				}
-				break;
-			case "toggle":
-				const prop = val1;
-				if (!prop) return;
-				const file = val2 && val2 !== prop ? this.app.metadataCache.getFirstLinkpathDest(val2, "") : this.app.workspace.getActiveFile();
-				if (file instanceof TFile) {
-					this.app.fileManager.processFrontMatter(file, (fm) => {
-						const cur = fm[prop];
-						fm[prop] = cur === true ? false : true; // Toggle logic (undefined/null becomes true)
-					});
-				} else {
-					new Notice("파일을 찾을 수 없습니다.");
-				}
-				break;
-			default:
-				new Notice(`알 수 없는 액션: ${type}`);
-		}
-	}
-	async createNewFileFromTemplate(tPath: string, rawArgs: string = "") {
-		try {
-			const tFile = this.app.metadataCache.getFirstLinkpathDest(tPath, "");
-			if (!tFile || !(tFile instanceof TFile)) {
-				new Notice("템플릿 탐색 실패");
-				return;
-			}
-			let content = await this.app.vault.read(tFile);
+		// Strategy Pattern Execution
+		const strategy = actionRegistry.get(type);
+		if (strategy) {
+			let param = val2;
+			let arg1: string | undefined = undefined;
 
-			let newProps: any = {};
-			if (rawArgs.trim().startsWith("{")) {
-				try {
-					newProps = JSON.parse(rawArgs);
-				} catch {
-					new Notice("JSON 형식 오류");
-					return;
-				}
-			} else if (rawArgs.trim().length > 0) {
-				newProps = { tags: rawArgs.split(",").map(t => t.trim()) };
+			if (type === "url") {
+				param = val1;
+				arg1 = parts[2];
+			} else if (type === "create") {
+				param = val1;
+				arg1 = parts.slice(2).join("|");
+			} else if (type === "toggle") {
+				param = val1;
+				arg1 = val2;
 			}
 
-			if (Object.keys(newProps).length > 0) content = this.mergeYaml(content, newProps);
-
-			const now = new Date();
-			const dateStr = `${now.getFullYear()}년 ${String(now.getMonth() + 1).padStart(2, '0')}월 ${String(now.getDate()).padStart(2, '0')}일`;
-			const timeStr = `${String(now.getHours()).padStart(2, '0')}시 ${String(now.getMinutes()).padStart(2, '0')}분 ${String(now.getSeconds()).padStart(2, '0')}초 생성`;
-			let base = `무제 ${dateStr} ${timeStr}`;
-			let finalPath = `${base}.md`;
-			let counter = 1;
-			while (await this.app.vault.adapter.exists(finalPath)) finalPath = `${base} (${counter++}).md`;
-
-			const nFile = await this.app.vault.create(finalPath, content);
-			await this.app.workspace.getLeaf('tab').openFile(nFile);
-			new Notice("병합 완료");
-		} catch {
-			new Notice("생성 실패");
-		}
-	}
-
-	private mergeYaml(content: string, props: any) {
-		if (content.startsWith("---")) {
-			const parts = content.split("---");
-			const yamlPart = parts[1];
-			if (yamlPart && parts.length >= 3) {
-				let yamlLines = yamlPart.split("\n").filter(l => l.trim() !== "");
-				for (const [key, value] of Object.entries(props)) {
-					const idx = yamlLines.findIndex(l => l.trim().startsWith(`${key}:`));
-					if (idx !== -1) {
-						if (Array.isArray(value)) yamlLines.splice(idx + 1, 0, ...value.map(v => `  - ${v}`));
-						else yamlLines[idx] = `${key}: ${value}`;
-					} else {
-						if (Array.isArray(value)) { yamlLines.push(`${key}:`); yamlLines.push(...value.map(v => `  - ${v}`)); }
-						else yamlLines.push(`${key}: ${value}`);
-					}
-				}
-				parts[1] = "\n" + yamlLines.join("\n") + "\n";
-				return parts.join("---");
-			}
+			await strategy.execute(this.app, param, arg1);
 		} else {
-			let newYaml = "---\n";
-			for (const [key, value] of Object.entries(props)) {
-				if (Array.isArray(value)) newYaml += `${key}:\n${value.map(v => `  - ${v}`).join("\n")}\n`;
-				else newYaml += `${key}: ${value}\n`;
-			}
-			return newYaml + "---\n\n" + content;
+			console.warn(`With Buttons: Action '${type}' not supported.`);
+			// new Notice(`알 수 없는 액션: ${type}`); // Optional: Silent fail or notify
 		}
-		return content;
 	}
+
 
 	buildLivePreviewPlugin() {
 		const plugin = this;
@@ -489,148 +376,65 @@ class CardBlockRenderer extends MarkdownRenderChild {
 			const rawIf = data.if ? resolveDynamicText(this.plugin.app, data.if) : "true";
 			if (rawIf === "false" || rawIf === "null" || rawIf === "undefined") return;
 
-			// Resolve Color from Palette or Raw
-			let rawColor = data.color ? resolveDynamicText(this.plugin.app, data.color) : "";
-			const paletteColor = this.plugin.settings.palettes[rawColor];
-			if (paletteColor) rawColor = paletteColor;
+			// V3.9: Use Shared Renderer
+			const layoutConfig = {
+				styleId: styleId,
+				direction: direction as any,
+				imgRatio: imgRatio,
+				ratio: localRatio,
+				palettes: this.plugin.settings.palettes
+			};
 
-			let rawTextColor = data.textColor ? resolveDynamicText(this.plugin.app, data.textColor) : "";
-			const paletteTextColor = this.plugin.settings.palettes[rawTextColor];
-			if (paletteTextColor) rawTextColor = paletteTextColor;
+			const btnConfig = {
+				title: data.title || "",
+				desc: data.desc || "",
+				icon: data.icon || "",
+				color: data.color || "",
+				picture: data.picture || "",
+				action: data.action || "",
+				// ActionType not explicitly needed for visual render, but kept for interface match if expanded
+				actionType: "command"
+			};
 
-			const cardEl = container.createEl("div", { cls: "card-item" });
+			// Dynamic resolution happens before passing to config
+			// However, renderer expects raw config. The renderer applies color logic. 
+			// Wait, renderer logic expects btn.color to be the value.
+			// In main.ts, we resolved dynamic colors (lines 493-499).
+			// Let's pass the resolved color as 'color' to the renderer.
 
-			// Apply Dynamic Colors
-			if (rawColor) cardEl.style.backgroundColor = rawColor;
-			if (rawTextColor) {
-				cardEl.style.color = rawTextColor;
-			} else if (rawColor) {
-				// Simple Auto-contrast
-				if (rawColor === "red" || rawColor.startsWith("#ff0000") || rawColor === "#f00") cardEl.style.color = "white";
-			}
+			// Re-map resolved colors to config
+			const resolvedBtnConfig = {
+				...btnConfig,
+				color: rawColor || btnConfig.color // prioritization handled
+			};
 
-			// --- V3.9 Layout Logic ---
-			let dir = direction.toLowerCase();
-			if (dir === "vertical") dir = "top";
-			else if (dir === "horizontal") dir = "left";
-			if (!["top", "bottom", "left", "right"].includes(dir)) dir = "top"; // Default
+			// Wait, previous main.ts logic had complex color priority (Palette > Raw > Auto-contrast).
+			// The renderer has: let bgColor = layout.palettes[btn.color] || btn.color;
+			// If main.ts passes "red" (key), renderer does palettes["red"] -> "#ff0000". Correct.
+			// If main.ts passes "#123", renderer does palettes["#123"] (undef) || "#123". Correct.
+			// Does main.ts resolve dynamic text first?
+			// Lines 493: let rawColor = resolveDynamicText...
+			// So we should pass 'rawColor' to renderer as 'color'.
 
-			const isColumn = (dir === "top" || dir === "bottom");
-			// Check if localRatio is valid fixed ratio (not auto, not empty, not 1/1 if default is different?)
-			// localRatio was parsed as "1 / 1" string or similar. Initialize it to "auto" if not present in input?
-			// Line 420: let localRatio = "1 / 1"; -> Change to "auto" default? 
-			// Wait, the parser sets it. I should check if it's "auto".
-			const isAuto = (localRatio === "auto" || !localRatio || localRatio === "undefined");
-
-			cardEl.style.display = "flex";
-			if (dir === "top") cardEl.style.flexDirection = "column";
-			else if (dir === "bottom") cardEl.style.flexDirection = "column-reverse";
-			else if (dir === "left") cardEl.style.flexDirection = "row";
-			else if (dir === "right") cardEl.style.flexDirection = "row-reverse";
-
-			cardEl.style.overflow = "hidden";
-
-			if (!isAuto) {
-				// Fixed Ratio Mode
-				cardEl.style.aspectRatio = localRatio;
-				cardEl.style.height = "auto";
-				cardEl.style.width = "100%";
-			} else {
-				// Auto Mode
-				cardEl.style.height = "100%";
-				if (isColumn && !styleId) {
-					cardEl.style.minHeight = "200px";
-				} else if (!isColumn) {
-					cardEl.style.height = "160px";
+			const cardEl = renderCardButton(
+				{ ...btnConfig, color: rawColor },
+				container,
+				layoutConfig,
+				this.plugin.app,
+				{
+					onClick: data.action ? () => this.plugin.handleAction(data.action!) : undefined
 				}
-			}
+			);
 
+			// Apply Text Color Override if exists (Renderer handles BG, but Main had explicit Text Color logic)
+			// Renderer handles simple auto-contrast.
+			// Main had: if (rawTextColor) cardEl.style.color = rawTextColor;
+			if (rawTextColor) cardEl.querySelector(".card-info")?.setAttribute("style", `color: ${rawTextColor} !important`);
+
+			// Mouse Events for Z-Index (Preserve)
 			cardEl.addEventListener('mouseenter', () => { cardEl.style.zIndex = "100"; });
 			cardEl.addEventListener('mouseleave', () => { cardEl.style.zIndex = "1"; });
 
-			const rawPic = data.picture || "";
-			const isOnlyImage = rawPic.includes("|only");
-			const picPath = isOnlyImage ? rawPic.split("|only")[0]?.trim() : rawPic.trim();
-
-			if (picPath) {
-				const res = this.plugin.resolveImagePath(picPath);
-				if (res) {
-					const imgDiv = cardEl.createEl("div", { cls: isOnlyImage ? "card-img-container is-only-image" : "card-img-container" });
-					imgDiv.style.flexShrink = "0";
-
-					// Size Logic (V3.9)
-					if (isColumn) {
-						imgDiv.style.width = "100%";
-						if (!isAuto) {
-							imgDiv.style.height = isOnlyImage ? "100%" : `${imgRatio}%`;
-						} else {
-							// Auto Mode: Natural Image Height (Aspect Ratio 16/9)
-							imgDiv.style.height = "auto";
-							imgDiv.style.aspectRatio = "16/9";
-						}
-					} else {
-						imgDiv.style.width = isOnlyImage ? "100%" : `${imgRatio}%`;
-						imgDiv.style.height = "100%";
-					}
-
-					imgDiv.style.position = "relative";
-					imgDiv.createEl("img", { attr: { src: res }, cls: "card-img" });
-					const overlay = imgDiv.createEl("div", { cls: "card-img-overlay" });
-					overlay.style.cssText = "position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5;";
-				}
-			}
-
-			if (!isOnlyImage) {
-				const infoEl = cardEl.createEl("div", { cls: "card-info" });
-				infoEl.style.display = "flex";
-				infoEl.style.flexDirection = "column";
-				infoEl.style.flexGrow = "1";
-				infoEl.style.overflow = "hidden"; // Prevent text overflow
-
-				// Info Size Logic
-				// In Flex column, we just let it grow (flex: 1). 
-				// In Row, we might need width constraint?
-				if (!isColumn) {
-					// Row Layout: Info width is remainder
-					infoEl.style.width = `${100 - imgRatio}%`;
-					infoEl.style.height = "100%";
-				} else {
-					infoEl.style.width = "100%";
-					// If Fixed Ratio, we might need to constrain height if not using Flex?
-					// Flex grow handles it.
-					if (!isAuto) {
-						// But if imgDiv is fixed %, infoDiv should fill remainder?
-						// In Flex column, if imgDiv is fixed height %, infoDiv flex-grow fills well.
-						// EXCEPT if parent has no specific height?
-						// Aspect-ratio on parent + flex column works.
-					}
-				}
-
-				if (data.title) {
-					const tEl = infoEl.createEl("div", { text: data.title, cls: "card-title" });
-					tEl.style.fontSize = titleSize; tEl.style.lineHeight = "1.2"; tEl.style.marginBottom = "2px";
-					tEl.style.fontWeight = "bold";
-					tEl.style.whiteSpace = "nowrap"; tEl.style.overflow = "hidden"; tEl.style.textOverflow = "ellipsis";
-				}
-				if (data.desc) {
-					const dEl = infoEl.createEl("p", { text: data.desc, cls: "card-desc" });
-					dEl.style.fontSize = descSize; dEl.style.lineHeight = "1.2"; dEl.style.margin = "0";
-
-					if (isAuto && isColumn) {
-						dEl.style.whiteSpace = "pre-wrap"; // Let text expand naturally
-					} else {
-						dEl.style.display = "-webkit-box";
-						dEl.style.webkitLineClamp = "2";
-						dEl.style.webkitBoxOrient = "vertical";
-						dEl.style.overflow = "hidden";
-					}
-				}
-			}
-
-			if (data.action) {
-				cardEl.addClass("is-clickable");
-				cardEl.onClickEvent(() => this.plugin.handleAction(data.action!));
-			}
 		});
 	}
 }
