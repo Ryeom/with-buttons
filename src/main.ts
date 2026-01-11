@@ -63,7 +63,15 @@ export default class MyPlugin extends Plugin {
 
 	async handleAction(actionString: string) {
 		console.log("With Buttons: Handling action:", actionString);
-		const parts = actionString.split("|").map(s => s.trim());
+		// Resolve Dynamic Text BEFORE splitting/using (careful with pipes inside dynamic blocks?)
+		// If we resolve first, and the result contains pipes, it might break splitting.
+		// User's example: ${tp.frontmatter["link"]} -> "https://google.com" (No pipes)
+		// If result has pipes, simple split is risky. 
+		// Better: Split first (assuming delimiters are fixed), then resolve each part.
+
+		const rawParts = actionString.split("|");
+		const parts = rawParts.map(s => resolveDynamicText(this.app, s.trim()));
+
 		const type = parts[0];
 		if (!type) return;
 
@@ -73,24 +81,36 @@ export default class MyPlugin extends Plugin {
 		// Strategy Pattern Execution
 		const strategy = actionRegistry.get(type);
 		if (strategy) {
-			let param = val2;
+			let param = val2; // Default: 3rd part is the payload (action | label | payload)
 			let arg1: string | undefined = undefined;
 
 			if (type === "url") {
-				param = val1;
-				arg1 = parts[2];
+				// url | label | url -> param=url (parts[2])
+				// url | url -> param=url (parts[1])
+				// Logic: if parts[2] exists, use it. If not, use parts[1].
+				// 'val2' already handles 'parts[2] ?? parts[1]'.
+				param = val2;
+				arg1 = parts[2] ? undefined : undefined; // No extra arg needed usually unless mobile scheme logic?
+				// UrlAction uses param as URL, arg1 as Mobile URL
+				if (parts[3]) arg1 = parts[3];
 			} else if (type === "create") {
 				param = val1;
+				// For create, arg1 is the validation? or JSON?
+				// parts: create | template | json
+				// param = template (val1)
+				// arg1 = json (parts[2]..)
 				arg1 = parts.slice(2).join("|");
 			} else if (type === "toggle") {
-				param = val1;
-				arg1 = val2;
+				param = val1; // key
+				arg1 = val2; // file (optional)
 			}
+			// For 'command', 'open', 'start': param=val2 (payload) is correct.
+			// command | label | command_id -> parts[2]
+			// open | label | path -> parts[2]
 
 			await strategy.execute(this.app, param, arg1);
 		} else {
 			console.warn(`With Buttons: Action '${type}' not supported.`);
-			// new Notice(`알 수 없는 액션: ${type}`); // Optional: Silent fail or notify
 		}
 	}
 
@@ -149,23 +169,45 @@ export default class MyPlugin extends Plugin {
 function resolveDynamicText(app: App, text: string): string {
 	if (!text.includes("${")) return text;
 
-	// Get Dataview API (Try plugin manager first, then global window object)
+	// Get Dataview API
 	let dv = (app as any).plugins.getPlugin("dataview")?.api;
-	if (!dv) {
-		dv = (window as any).DataviewAPI;
+	if (!dv) dv = (window as any).DataviewAPI;
+
+	// V4.4: Get Templater API
+	const templaterPlugin = (app as any).plugins.getPlugin("templater-obsidian");
+
+	// DEBUG LOGGING - REMOVED
+
+
+	let tp = templaterPlugin?.templater?.current_functions_object;
+
+	// Fallback: Create mock 'tp' object if actual context is missing
+	// This allows ${tp.frontmatter["key"]} to work even if not triggered by a template insertion.
+	if (!tp) {
+		const activeFile = app.workspace.getActiveFile();
+		if (activeFile) {
+			const cache = app.metadataCache.getFileCache(activeFile);
+			tp = {
+				file: {
+					title: activeFile.basename,
+					path: activeFile.path,
+					// Add other common properties if needed
+				},
+				frontmatter: cache?.frontmatter ?? {}
+			};
+		}
 	}
 
-	if (!dv) {
-		console.warn("With Buttons: Dataview API not found. Please ensure Dataview is installed and enabled.");
-		return text;
+	if (!dv && !tp) {
+		// Warn only if neither is available, but if at least one is, proceed.
+		// If user uses syntax for missing one, it will error in try/catch which is handled.
 	}
 
 	try {
-		// Replace ${code} with the evaluated result
+		// V4.4: Pass 'tp' to function scope
 		return text.replace(/\$\{([\s\S]*?)\}/g, (_, code) => {
-			// Create a function with 'dv' and 'app' in scope
-			const func = new Function("dv", "app", `try { return ${code}; } catch(e) { console.error("Dynamic Eval Error:", e); return "Err"; }`);
-			const result = func(dv, app);
+			const func = new Function("dv", "app", "tp", `try { return ${code}; } catch(e) { console.error("Dynamic Eval Error:", e); return "Err"; }`);
+			const result = func(dv, app, tp);
 			return String(result ?? "");
 		});
 	} catch (e) {

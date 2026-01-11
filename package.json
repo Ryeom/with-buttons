@@ -1,6 +1,6 @@
 {
 	"name": "with-buttons",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"description": "This plug-in changes the code area to a button.",
 	"main": "main.js",
 	"type": "module",

@@ -1,7 +1,7 @@
 {
 	"id": "with-buttons",
 	"name": "With Buttons",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"minAppVersion": "0.15.0",
 	"description": "This plug-in changes the code area to a button.",
 	"author": "Ryeom",
