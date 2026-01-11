@@ -1,8 +1,9 @@
-import { App, Modal } from "obsidian";
+import { App, Modal, Notice } from "obsidian";
 import MyPlugin from "../../main";
 import { ButtonConfig } from "./shared";
 import { WizardListView } from "./WizardListView";
 import { WizardEditorView } from "./WizardEditorView";
+import { CSSEditModal } from "../../settings";
 
 export class CardWizardModal extends Modal {
     public styleId: string = "";
@@ -11,6 +12,8 @@ export class CardWizardModal extends Modal {
     public ratio: string = "auto";
     public grid: string = ""; // V4.1: Grid Dimensions (NxM)
     public textLayout: "vertical" | "horizontal" = "vertical"; // V4.2
+    public titleSize: string = ""; // V4.3
+    public descSize: string = ""; // V4.3
 
 
     public buttons: ButtonConfig[] = [];
@@ -37,8 +40,36 @@ export class CardWizardModal extends Modal {
         contentEl.empty();
         contentEl.style.display = "flex"; contentEl.style.flexDirection = "column"; contentEl.style.height = "100%";
 
-        const header = contentEl.createEl("h2", { text: "🧙‍♂️ 버튼 생성 마법사 (Wizard V4.0)" });
-        header.style.flexShrink = "0";
+        // ... inside render() ...
+        const headerContainer = contentEl.createEl("div");
+        headerContainer.style.display = "flex";
+        headerContainer.style.justifyContent = "space-between";
+        headerContainer.style.alignItems = "center";
+        headerContainer.style.flexShrink = "0";
+        headerContainer.style.marginBottom = "10px";
+
+        const header = headerContainer.createEl("h2", { text: "🧙‍♂️ 버튼 생성 마법사 (Wizard V4.3)" });
+        header.style.margin = "0";
+
+        const styleBtn = headerContainer.createEl("button", { text: "🎨 스타일 편집" });
+        styleBtn.onclick = () => {
+            const sid = this.styleId || "";
+            const css = this.plugin.settings.customStyles[sid] || "";
+            new CSSEditModal(this.plugin.app, sid, css, async (newId: string, newCss: string) => {
+                // Update Settings
+                if (newId !== sid) {
+                    if (this.plugin.settings.customStyles[newId]) {
+                        // Conflict
+                    } else {
+                        delete this.plugin.settings.customStyles[sid];
+                    }
+                    this.styleId = newId;
+                }
+                this.plugin.settings.customStyles[newId] = newCss;
+                await this.plugin.saveSettings();
+                this.render(); // Refresh Wizard
+            }).open();
+        };
 
         const viewContainer = contentEl.createEl("div");
         viewContainer.style.flex = "1";
@@ -87,6 +118,8 @@ export class CardWizardModal extends Modal {
                 if (key === "ratio") this.ratio = val || "auto";
                 if (key === "grid") this.grid = val || "";
                 if (key === "textlayout") this.textLayout = (val === "horizontal") ? "horizontal" : "vertical";
+                if (key === "titlesize") this.titleSize = val || "";
+                if (key === "descsize") this.descSize = val || "";
             });
         }
 
@@ -138,6 +171,13 @@ export class CardWizardModal extends Modal {
             if (this.direction) parts.push(`direction: ${this.direction}`);
             if (this.imgRatio !== 60) parts.push(`img-ratio: ${this.imgRatio}%`);
             if (this.ratio && this.ratio !== "auto") parts.push(`ratio: ${this.ratio}`);
+            if (this.grid) parts.push(`grid: ${this.grid}`);
+            if (this.textLayout === "horizontal") parts.push(`textLayout: horizontal`);
+            if (this.titleSize) parts.push(`titleSize: ${this.titleSize}`);
+            if (this.descSize) parts.push(`descSize: ${this.descSize}`);
+
+            parts.push("");
+        } else {
             if (this.grid) parts.push(`grid: ${this.grid}`);
             if (this.textLayout === "horizontal") parts.push(`textLayout: horizontal`);
             parts.push("");

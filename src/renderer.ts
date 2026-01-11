@@ -18,6 +18,8 @@ export interface CardLayoutConfig {
     imgRatio: number; // 10-90
     ratio: string;    // "auto", "1/1", "16/9"
     textLayout?: "vertical" | "horizontal"; // V4.2
+    titleSize?: string; // V4.3
+    descSize?: string; // V4.3
     palettes: Record<string, string>;
 }
 
@@ -188,7 +190,7 @@ export function renderCardButton(
     infoArea.style.overflow = "hidden";
 
     const title = infoArea.createEl("div", { text: btn.title || "(제목 없음)" });
-    title.style.fontSize = "1.1em";
+    title.style.fontSize = layout.titleSize || "1.1em"; // V4.3
     title.style.fontWeight = "bold";
 
     if (layout.textLayout === "horizontal") {
@@ -206,7 +208,7 @@ export function renderCardButton(
 
     if (btn.desc) {
         const desc = infoArea.createEl("div", { text: btn.desc });
-        desc.style.fontSize = "0.9em";
+        desc.style.fontSize = layout.descSize || "0.9em"; // V4.3
         desc.style.opacity = "0.9";
         // Auto Mode: Allow text to expand naturally
         if (isAuto && isColumn) {

@@ -20,7 +20,7 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	}
 }
 
-class CSSEditModal extends Modal {
+export class CSSEditModal extends Modal {
 	private styleTag: HTMLStyleElement | null = null;
 	private previewContainer: HTMLElement | null = null;
 	private textArea: TextAreaComponent | null = null;
@@ -389,6 +389,23 @@ export class SampleSettingTab extends PluginSettingTab {
 					this.plugin.settings.customStyles[newId] = defaultCss;
 					await this.plugin.saveSettings();
 					this.display();
+
+					// V4.3 Auto-Open Editor
+					new CSSEditModal(this.app, newId, defaultCss, async (savedId, savedCss) => {
+						if (savedId !== newId) {
+							if (this.plugin.settings.customStyles[savedId]) {
+								new Notice(`'${savedId}' ID가 이미 존재하여 덮어썼습니다.`);
+							}
+							delete this.plugin.settings.customStyles[newId];
+							new Notice(`ID가 '${savedId}'로 변경되었습니다.`);
+						} else {
+							new Notice("스타일이 저장되었습니다.");
+						}
+						this.plugin.settings.customStyles[savedId] = savedCss;
+						await this.plugin.saveSettings();
+						this.refreshMarkdownViews();
+						this.display();
+					}).open();
 				}));
 
 		const styles = this.plugin.settings.customStyles;

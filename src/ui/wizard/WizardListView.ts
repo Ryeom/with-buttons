@@ -72,6 +72,20 @@ export class WizardListView {
         textLayoutSelect.value = this.modal.textLayout;
         textLayoutSelect.onchange = () => { this.modal.textLayout = textLayoutSelect.value as any; this.modal.render(); };
 
+        // V4.3 Font Size Options
+        const fontDiv = settingBar.createEl("div");
+        fontDiv.style.display = "flex"; fontDiv.style.alignItems = "center"; fontDiv.style.gap = "5px";
+
+        const tInput = fontDiv.createEl("input", { type: "text", placeholder: "제목(1.1em)" });
+        tInput.style.width = "70px"; tInput.title = "제목 폰트 크기 (예: 16px, 1.5em)";
+        tInput.value = this.modal.titleSize;
+        tInput.onchange = () => { this.modal.titleSize = tInput.value; this.modal.render(); };
+
+        const dInput = fontDiv.createEl("input", { type: "text", placeholder: "설명(0.9em)" });
+        dInput.style.width = "70px"; dInput.title = "설명 폰트 크기";
+        dInput.value = this.modal.descSize;
+        dInput.onchange = () => { this.modal.descSize = dInput.value; this.modal.render(); };
+
         // 3. Aspect Ratio (V3.8) - Custom Input (V4.2)
         const ratioDiv = settingBar.createEl("div");
         ratioDiv.createEl("span", { text: "비율: " }).style.fontWeight = "bold";
