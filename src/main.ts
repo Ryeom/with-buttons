@@ -335,7 +335,10 @@ class CardBlockRenderer extends MarkdownRenderChild {
 		this.registerEvent(this.plugin.app.vault.on("create", debouncedRender));
 		this.registerEvent(this.plugin.app.vault.on("delete", debouncedRender));
 		this.registerEvent(this.plugin.app.vault.on("rename", debouncedRender));
-		this.registerEvent(this.plugin.app.vault.on("modify", debouncedRender));
+		// modify는 동적 텍스트(${...})를 사용하는 카드만 반응
+		if (this.source.includes("${")) {
+			this.registerEvent(this.plugin.app.vault.on("modify", debouncedRender));
+		}
 	}
 
 	onunload() {
