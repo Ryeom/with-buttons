@@ -1,6 +1,6 @@
 import { MarkdownRenderChild } from 'obsidian';
 import { resolveDynamicText, scopeCSS } from './utils';
-import type MyPlugin from './main';
+import type WithButtonsPlugin from './main';
 
 export interface CardData {
 	title?: string;
@@ -16,7 +16,7 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 	private injectedStyleTags: HTMLStyleElement[] = [];
 	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-	constructor(containerEl: HTMLElement, private source: string, private plugin: MyPlugin) {
+	constructor(containerEl: HTMLElement, private source: string, private plugin: WithButtonsPlugin) {
 		super(containerEl);
 	}
 

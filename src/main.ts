@@ -3,15 +3,15 @@ import {
 	ViewUpdate, ViewPlugin, DecorationSet, Decoration,
 	EditorView
 } from "@codemirror/view";
-import { DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab } from "./settings";
+import { DEFAULT_SETTINGS, WithButtonsSettings, WithButtonsSettingTab } from "./settings";
 import FileSuggest from './file-suggest';
 import ActionSuggest from './action-suggest';
 import SettingSuggest from 'setting-suggest';
 import { InlineButtonWidget, InlineButtonChild } from './inline-button';
 import { CardBlockRenderer, CardData } from './card-renderer';
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class WithButtonsPlugin extends Plugin {
+	settings: WithButtonsSettings;
 
 	async onload() {
 		await this.loadSettings();
@@ -34,7 +34,7 @@ export default class MyPlugin extends Plugin {
 			const child = new CardBlockRenderer(el, source, this);
 			ctx.addChild(child);
 		});
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(new WithButtonsSettingTab(this.app, this));
 	}
 
 	async handleAction(actionString: string) {

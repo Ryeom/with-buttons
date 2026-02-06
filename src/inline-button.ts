@@ -1,9 +1,9 @@
 import { setIcon, MarkdownRenderChild } from 'obsidian';
 import { WidgetType } from "@codemirror/view";
 import { resolveDynamicText } from './utils';
-import type MyPlugin from './main';
+import type WithButtonsPlugin from './main';
 
-function renderInlineButton(el: HTMLElement, content: string, plugin: MyPlugin) {
+function renderInlineButton(el: HTMLElement, content: string, plugin: WithButtonsPlugin) {
 	const parts = content.split("|").map(p => p.trim());
 	const type = parts[0] || "";
 	const label = parts[1] || "";
@@ -26,12 +26,12 @@ function renderInlineButton(el: HTMLElement, content: string, plugin: MyPlugin) 
 }
 
 export class InlineButtonWidget extends WidgetType {
-	constructor(readonly content: string, readonly plugin: MyPlugin) { super(); }
+	constructor(readonly content: string, readonly plugin: WithButtonsPlugin) { super(); }
 	toDOM() { const span = document.createElement("span"); renderInlineButton(span, this.content, this.plugin); return span; }
 }
 
 export class InlineButtonChild extends MarkdownRenderChild {
-	constructor(containerEl: HTMLElement, public plugin: MyPlugin) { super(containerEl); }
+	constructor(containerEl: HTMLElement, public plugin: WithButtonsPlugin) { super(containerEl); }
 	onload() {
 		const rawText = this.containerEl.innerText.trim();
 		const match = rawText.match(/^\[!(.*)!\]$/);

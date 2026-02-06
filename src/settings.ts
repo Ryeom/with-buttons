@@ -1,15 +1,15 @@
 import { App, PluginSettingTab, Setting, Modal, TextAreaComponent, TextComponent, Notice } from "obsidian";
 import { scopeCSS } from "./utils";
-import MyPlugin from "./main";
+import WithButtonsPlugin from "./main";
 
-export interface MyPluginSettings {
+export interface WithButtonsSettings {
 	aspectRatioWidth: number;
 	aspectRatioHeight: number;
 	customStyles: Record<string, string>;
 	palettes: Record<string, string>;
 }
 
-export const DEFAULT_SETTINGS: MyPluginSettings = {
+export const DEFAULT_SETTINGS: WithButtonsSettings = {
 	aspectRatioWidth: 5,
 	aspectRatioHeight: 4,
 	customStyles: {},
@@ -279,10 +279,10 @@ class CSSEditModal extends Modal {
 	}
 }
 
-export class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+export class WithButtonsSettingTab extends PluginSettingTab {
+	plugin: WithButtonsPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: WithButtonsPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
