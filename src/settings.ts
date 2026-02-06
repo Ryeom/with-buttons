@@ -1,4 +1,5 @@
 import { App, PluginSettingTab, Setting, Modal, TextAreaComponent, TextComponent, Notice } from "obsidian";
+import { scopeCSS } from "./utils";
 import MyPlugin from "./main";
 
 export interface MyPluginSettings {
@@ -274,21 +275,7 @@ class CSSEditModal extends Modal {
 		if (!this.styleTag || !this.textArea) return;
 		const rawCss = this.textArea.getValue();
 
-		// Scope CSS to preview container
-		// Replace standard class selectors with scoped versions
-		// E.g. .card-item -> div[data-style-preview] .card-item
-		const scopedCss = rawCss.replace(/([^;{}]+)(?=\{)/g, (selectors) => {
-			return selectors.split(",").map(selector => {
-				const trimmed = selector.trim();
-				// Avoid scoping self
-				if (trimmed.includes(".card-buttons-container")) {
-					return trimmed.replace(".card-buttons-container", "div[data-style-preview]");
-				}
-				return `div[data-style-preview] ${trimmed}`;
-			}).join(", ");
-		});
-
-		this.styleTag.textContent = scopedCss;
+		this.styleTag.textContent = scopeCSS(rawCss, "div[data-style-preview]");
 	}
 
 	onClose() {

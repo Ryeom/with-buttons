@@ -10,6 +10,7 @@ import { DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab } from "./settings
 import FileSuggest from './file-suggest';
 import ActionSuggest from './action-suggest';
 import SettingSuggest from 'setting-suggest';
+import { scopeCSS } from './utils';
 
 interface CardData {
 	title?: string;
@@ -399,19 +400,7 @@ class CardBlockRenderer extends MarkdownRenderChild {
 						const styleTag = document.head.createEl("style", { attr: { id: `style-tag-${id}` } });
 					this.injectedStyleTags.push(styleTag);
 
-					// Scoped CSS Injection (No more forced !important)
-					// .card-item -> div[data-style-id] .card-item
-					const scopedCSS = fullCSS.replace(/([^;{}]+)(?=\{)/g, (selectors) => {
-						return selectors.split(",").map(selector => {
-							const trimmed = selector.trim();
-							if (trimmed.includes(".card-buttons-container")) {
-								return trimmed.replace(".card-buttons-container", `div[${scopeAttr}]`);
-							}
-							return `div[${scopeAttr}] ${trimmed}`;
-						}).join(", ");
-					});
-
-					styleTag.textContent = scopedCSS;
+					styleTag.textContent = scopeCSS(fullCSS, `div[${scopeAttr}]`);
 				}
 			});
 		}
