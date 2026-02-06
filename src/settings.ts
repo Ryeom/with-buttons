@@ -30,7 +30,7 @@ class CSSEditModal extends Modal {
 	private showImage: boolean = true;
 	private styleId: string;
 
-	constructor(app: App, initialId: string, private initialCSS: string, private onSave: (newId: string, css: string) => void) {
+	constructor(app: App, initialId: string, private initialCSS: string, private palettes: Record<string, string>, private onSave: (newId: string, css: string) => void) {
 		super(app);
 		this.styleId = initialId;
 	}
@@ -145,16 +145,7 @@ class CSSEditModal extends Modal {
 		paletteBar.style.setProperty("-ms-overflow-style", "none");
 		paletteBar.style.setProperty("scrollbar-width", "none");
 
-		// Access settings via app or pass plugin instance. 
-		// Since we only passed 'app', we need to retrieve the plugin instance or settings.
-		// NOTE: CSSEditModal doesn't have direct access to 'plugin' instance yet.
-		// However, we can access it via app.plugins if needed, OR better, pass 'settings' to constructor.
-		// For now, let's try to get it from the app since we are inside a plugin.
-		// Actually, let's just use the known settings shape if possible, or pass it.
-		// To adhere to strict TS, best to pass `plugin` to Modal.
-		// But I will use a safe cast for now to avoid changing constructor signature too much unless necessary.
-		const plugin = (this.app as any).plugins.getPlugin("with-buttons");
-		const palettes = plugin?.settings?.palettes || {};
+		const palettes = this.palettes;
 
 		Object.entries(palettes).forEach(([name, color]) => {
 			const item = paletteBar.createEl("div");
@@ -389,7 +380,7 @@ export class SampleSettingTab extends PluginSettingTab {
 					.setButtonText("편집")
 					.onClick(() => {
 						// Open Modal with Rename capability
-						new CSSEditModal(this.app, id, cssContent, async (newId, newCss) => {
+						new CSSEditModal(this.app, id, cssContent, this.plugin.settings.palettes, async (newId, newCss) => {
 							// Update logic
 							if (newId !== id) {
 								if (styles[newId]) {
