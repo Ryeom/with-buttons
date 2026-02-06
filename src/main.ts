@@ -319,23 +319,35 @@ class InlineButtonChild extends MarkdownRenderChild {
 	}
 }
 class CardBlockRenderer extends MarkdownRenderChild {
+	private injectedStyleTags: HTMLStyleElement[] = [];
+	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
 	constructor(containerEl: HTMLElement, private source: string, private plugin: MyPlugin) {
 		super(containerEl);
 	}
 
 	onload() {
 		this.render();
-		// Register vault events to trigger re-render
-		// Debounce render to allow Vault cache to update
-		const debouncedRender = () => setTimeout(() => this.render(), 100);
+		const debouncedRender = () => {
+			if (this.debounceTimer) clearTimeout(this.debounceTimer);
+			this.debounceTimer = setTimeout(() => this.render(), 100);
+		};
 		this.registerEvent(this.plugin.app.vault.on("create", debouncedRender));
 		this.registerEvent(this.plugin.app.vault.on("delete", debouncedRender));
 		this.registerEvent(this.plugin.app.vault.on("rename", debouncedRender));
-		this.registerEvent(this.plugin.app.vault.on("modify", debouncedRender)); // Also update on file changes (e.g. frontmatter)
+		this.registerEvent(this.plugin.app.vault.on("modify", debouncedRender));
+	}
+
+	onunload() {
+		this.injectedStyleTags.forEach(tag => tag.remove());
+		this.injectedStyleTags = [];
+		if (this.debounceTimer) clearTimeout(this.debounceTimer);
 	}
 
 	render() {
 		this.containerEl.empty();
+		this.injectedStyleTags.forEach(tag => tag.remove());
+		this.injectedStyleTags = [];
 		const el = this.containerEl;
 		const parts = this.source.split("[card]");
 		const firstPart = parts[0] || "";
@@ -379,10 +391,8 @@ class CardBlockRenderer extends MarkdownRenderChild {
 				if (fullCSS) {
 					const scopeAttr = `data-style-${id}`;
 					container.setAttribute(scopeAttr, "");
-					const oldTag = document.getElementById(`style-tag-${id}`);
-					if (oldTag) oldTag.remove();
-
-					const styleTag = document.head.createEl("style", { attr: { id: `style-tag-${id}` } });
+						const styleTag = document.head.createEl("style", { attr: { id: `style-tag-${id}` } });
+					this.injectedStyleTags.push(styleTag);
 
 					// Scoped CSS Injection (No more forced !important)
 					// .card-item -> div[data-style-id] .card-item
