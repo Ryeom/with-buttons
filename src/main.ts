@@ -166,7 +166,7 @@ export default class WithButtonsPlugin extends Plugin {
 				for (const [key, value] of Object.entries(props)) {
 					const idx = yamlLines.findIndex(l => l.trim().startsWith(`${key}:`));
 					if (idx !== -1) {
-						if (Array.isArray(value)) yamlLines.splice(idx + 1, 0, ...value.map(v => `  - ${v}`));
+						if (Array.isArray(value)) { yamlLines[idx] = `${key}:`; yamlLines.splice(idx + 1, 0, ...value.map(v => `  - ${v}`)); }
 						else yamlLines[idx] = `${key}: ${value}`;
 					} else {
 						if (Array.isArray(value)) { yamlLines.push(`${key}:`); yamlLines.push(...value.map(v => `  - ${v}`)); }
