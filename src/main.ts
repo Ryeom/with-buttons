@@ -297,7 +297,8 @@ function renderInlineButton(el: HTMLElement, content: string, plugin: MyPlugin) 
 	setIcon(iconSpan, iconId);
 	const textSpan = el.createEl("span", { text: finalLabel || value, cls: "inline-button-text" });
 	if (iconColor) { iconSpan.style.color = iconColor; textSpan.style.color = iconColor; }
-	el.onclick = (e) => { e.preventDefault(); e.stopPropagation(); plugin.handleAction(content); };
+	const actionString = `${type}|${value}`;
+	el.onclick = (e) => { e.preventDefault(); e.stopPropagation(); plugin.handleAction(actionString); };
 }
 
 class InlineButtonWidget extends WidgetType {
