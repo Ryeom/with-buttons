@@ -210,16 +210,18 @@ export default class MyPlugin extends Plugin {
 			buildDecorations(view: EditorView) {
 				const decorations: any[] = [];
 				const regex = /`\[!(.*?)!\]`/g;
-				const text = view.state.doc.toString();
 				const selection = view.state.selection.main;
-				let match;
-				while ((match = regex.exec(text)) !== null) {
-					const start = match.index;
-					const end = start + match[0].length;
-					if (selection.from >= start && selection.to <= end) continue;
-					const content = match[1];
-					if (content) {
-						decorations.push(Decoration.replace({ widget: new InlineButtonWidget(content, plugin) }).range(start, end));
+				for (const { from, to } of view.visibleRanges) {
+					const text = view.state.doc.sliceString(from, to);
+					let match;
+					while ((match = regex.exec(text)) !== null) {
+						const start = from + match.index;
+						const end = start + match[0].length;
+						if (selection.from >= start && selection.to <= end) continue;
+						const content = match[1];
+						if (content) {
+							decorations.push(Decoration.replace({ widget: new InlineButtonWidget(content, plugin) }).range(start, end));
+						}
 					}
 				}
 				return Decoration.set(decorations, true);
