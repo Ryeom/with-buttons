@@ -50,12 +50,12 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 		const settingSource = firstPart.includes("[setting]") ? firstPart.replace("[setting]", "").trim() : "";
 		const cardSections = parts.slice(1).map(s => s.trim()).filter(s => s !== "");
 
-		let localRatio = "1 / 1";
-		let titleSize = "14px";
-		let descSize = "11px";
+		let localRatio = "";
+		let titleSize = "";
+		let descSize = "";
 		let styleId = "";
-		let imgRatioStr = "60";
-		let direction = "vertical";
+		let imgRatioStr = "";
+		let direction = "";
 
 		if (settingSource) {
 			settingSource.split("\n").forEach(line => {
@@ -75,11 +75,26 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 			});
 		}
 
-		const rawRatio = parseInt(imgRatioStr);
-		const imgRatio = isNaN(rawRatio) ? 60 : Math.min(Math.max(rawRatio, 0), 100);
-
 		const container = el.createEl("div", { cls: "card-buttons-container" });
 
+		// CSS 변수 주입 (사용자 설정값이 있을 때만 기본값 오버라이드)
+		container.style.setProperty("--card-columns", String(cardSections.length || 1));
+		if (localRatio) container.style.setProperty("--card-ratio", localRatio);
+		if (titleSize) container.style.setProperty("--title-size", titleSize);
+		if (descSize) container.style.setProperty("--desc-size", descSize);
+
+		if (imgRatioStr) {
+			const rawRatio = parseInt(imgRatioStr);
+			const imgRatio = isNaN(rawRatio) ? 60 : Math.min(Math.max(rawRatio, 0), 100);
+			container.style.setProperty("--img-ratio", `${imgRatio}%`);
+		}
+
+		// data-direction 속성으로 레이아웃 분기
+		if (direction === "horizontal") {
+			container.setAttribute("data-direction", "horizontal");
+		}
+
+		// 커스텀 스타일 주입
 		if (styleId) {
 			const ids = styleId.split(/\s+/);
 			ids.forEach(id => {
@@ -93,10 +108,6 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 				}
 			});
 		}
-
-		container.style.display = "grid";
-		container.style.gridTemplateColumns = `repeat(${cardSections.length || 1}, 1fr)`;
-		container.style.gap = "10px";
 
 		cardSections.forEach((section) => {
 			const data = this.plugin.parseSection(section);
@@ -118,21 +129,13 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 
 			const cardEl = container.createEl("div", { cls: "card-item" });
 
+			// 동적 색상만 인라인으로 유지
 			if (rawColor) cardEl.style.backgroundColor = rawColor;
 			if (rawTextColor) {
 				cardEl.style.color = rawTextColor;
 			} else if (rawColor) {
 				if (rawColor === "red" || rawColor.startsWith("#ff0000") || rawColor === "#f00") cardEl.style.color = "white";
 			}
-
-			const isVertical = direction === "vertical";
-			cardEl.style.display = "flex";
-			cardEl.style.flexDirection = isVertical ? "column" : "row";
-			cardEl.style.setProperty("aspect-ratio", localRatio, "important");
-			cardEl.style.overflow = "hidden";
-
-			cardEl.addEventListener('mouseenter', () => { cardEl.style.zIndex = "100"; });
-			cardEl.addEventListener('mouseleave', () => { cardEl.style.zIndex = "1"; });
 
 			const rawPic = data.picture || "";
 			const isOnlyImage = rawPic.includes("|only");
@@ -142,45 +145,15 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 				const res = this.plugin.resolveImagePath(picPath);
 				if (res) {
 					const imgDiv = cardEl.createEl("div", { cls: isOnlyImage ? "card-img-container is-only-image" : "card-img-container" });
-					imgDiv.style.flexShrink = "0";
-
-					if (isVertical) {
-						imgDiv.style.width = "100%";
-						imgDiv.style.height = isOnlyImage ? "100%" : `${imgRatio}%`;
-					} else {
-						imgDiv.style.width = isOnlyImage ? "100%" : `${imgRatio}%`;
-						imgDiv.style.height = "100%";
-					}
-
-					imgDiv.style.position = "relative";
 					imgDiv.createEl("img", { attr: { src: res }, cls: "card-img" });
-					const overlay = imgDiv.createEl("div", { cls: "card-img-overlay" });
-					overlay.style.cssText = "position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5;";
+					imgDiv.createEl("div", { cls: "card-img-overlay" });
 				}
 			}
 
 			if (!isOnlyImage) {
 				const infoEl = cardEl.createEl("div", { cls: "card-info" });
-				infoEl.style.display = "flex";
-				infoEl.style.flexDirection = "column";
-				infoEl.style.flexGrow = "1";
-
-				if (isVertical) {
-					infoEl.style.width = "100%";
-					infoEl.style.height = `${100 - imgRatio}%`;
-				} else {
-					infoEl.style.width = `${100 - imgRatio}%`;
-					infoEl.style.height = "100%";
-				}
-
-				if (data.title) {
-					const tEl = infoEl.createEl("div", { text: data.title, cls: "card-title" });
-					tEl.style.fontSize = titleSize; tEl.style.lineHeight = "1.2"; tEl.style.marginBottom = "2px";
-				}
-				if (data.desc) {
-					const dEl = infoEl.createEl("p", { text: data.desc, cls: "card-desc" });
-					dEl.style.fontSize = descSize; dEl.style.lineHeight = "1.2"; dEl.style.margin = "0";
-				}
+				if (data.title) infoEl.createEl("div", { text: data.title, cls: "card-title" });
+				if (data.desc) infoEl.createEl("p", { text: data.desc, cls: "card-desc" });
 			}
 
 			if (data.action) {

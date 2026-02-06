@@ -1,51 +1,73 @@
 /****************************************** card button *******************************************/
 .card-buttons-container {
+    --card-columns: 1;
+    --card-ratio: 1 / 1;
+    --img-ratio: 60%;
+    --title-size: 14px;
+    --desc-size: 11px;
+
     display: grid;
-    gap: 0.8em;
+    grid-template-columns: repeat(var(--card-columns), 1fr);
+    gap: 10px;
     width: 100%;
-    /* 위아래 패딩으로 호버 시 솟아오를 공간 확보 및 잘림 방지 */
     padding: 15px 5px;
     margin: 0.5rem 0;
-    /* 가로 스크롤은 허용하되 세로 방향은 호버 요소가 보일 수 있도록 설정 */
     overflow-x: auto;
     overflow-y: visible;
     scrollbar-width: thin;
 }
 
-/* 2. 개별 카드 아이템 기본 스타일 */
+/* 2. 개별 카드 아이템 기본 스타일 (default: vertical) */
 .card-item {
     display: flex;
-    flex-direction: row;
-    aspect-ratio: 5 / 4;
+    flex-direction: column;
+    aspect-ratio: var(--card-ratio);
     border: 1px solid var(--background-modifier-border);
     border-radius: 8px;
-    /* 내부 콘텐츠(이미지) 잘림 방지, 단 호버 효과를 위해 상위 overflow는 visible이어야 함 */
     overflow: hidden;
     background-color: var(--background-primary);
     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
     position: relative;
     box-sizing: border-box;
+    z-index: 1;
+}
+
+/* horizontal 방향 */
+.card-buttons-container[data-direction="horizontal"] .card-item {
+    flex-direction: row;
 }
 
 .card-item.is-clickable {
     cursor: pointer;
 }
 
-/* 호버 시 솟아오르는 효과 강화 */
+/* 호버 시 솟아오르는 효과 */
 .card-item.is-clickable:hover {
     transform: translateY(-4px);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
     border-color: var(--interactive-accent);
+    z-index: 100;
 }
 
-/* 3. 이미지 영역 (60% 차지) */
+/* 3. 이미지 영역 — vertical: height 기준, horizontal: width 기준 */
 .card-img-container {
-    width: 60%;
-    /* height 대신 width를 기본으로 사용 */
-    height: 100%;
+    width: 100%;
+    height: var(--img-ratio);
     background-color: var(--background-secondary);
     overflow: hidden;
     flex-shrink: 0;
+    position: relative;
+}
+
+.card-buttons-container[data-direction="horizontal"] .card-img-container {
+    width: var(--img-ratio);
+    height: 100%;
+}
+
+/* only-image 모드 */
+.card-img-container.is-only-image {
+    width: 100%;
+    height: 100%;
 }
 
 .card-img {
@@ -54,13 +76,24 @@
     object-fit: cover;
 }
 
-/* 사진만 보이는 모드 (|only) */
-.card-img-container.is-only-image {
-    height: 100%;
-}
-
 .card-item.is-clickable:hover .is-only-image .card-img {
     filter: brightness(0.85);
+}
+
+/* 이미지 오버레이 */
+.card-img-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.is-clickable .card-img-overlay {
+    pointer-events: auto;
+    cursor: pointer;
 }
 
 /* 4. 정보 영역 (텍스트) */
@@ -74,26 +107,25 @@
     background-color: inherit;
 }
 
-/* 제목 스타일 (왼쪽 정렬 및 핏 조절) */
+/* 제목 */
 .card-title {
     font-weight: 700;
-    font-size: 1rem;
+    font-size: var(--title-size);
     color: var(--text-normal);
     line-height: 1.2;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     text-align: left;
-    /* 왼쪽 정렬 명시 */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     display: block;
 }
 
-/* 설명 스타일 (마진 제거 및 2줄 제한) */
+/* 설명 */
 .card-desc {
-    font-size: 0.85em;
+    font-size: var(--desc-size);
     color: var(--text-muted);
-    line-height: 1.3;
+    line-height: 1.2;
     margin: 0;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -101,18 +133,7 @@
     overflow: hidden;
 }
 
-/* 이미지 클릭 간섭 방지를 위한 오버레이 */
-.card-img-overlay {
-    pointer-events: none;
-    /* 클릭은 투과시키되 */
-}
-
-.is-clickable .card-img-overlay {
-    pointer-events: auto;
-    cursor: pointer;
-}
-
-/****************************************** inline card*******************************************/
+/****************************************** inline card *******************************************/
 .inline-card-button {
     display: inline-flex;
     align-items: center;
@@ -122,14 +143,11 @@
     transition: all 0.2s ease;
 }
 
-/* --------------------------------------------------
-   1. 편집 모드 전용 (Live Preview) - 트렌디 알약 스타일
-   -------------------------------------------------- */
+/* 편집 모드 (Live Preview) */
 .markdown-source-view.mod-cm6 .inline-card-button {
     gap: 4px;
     padding: 1px 8px;
     border-radius: 4px;
-    /* 알약 모양 */
     background-color: var(--background-secondary-alt);
     font-size: 0.85em;
     font-weight: 600;
@@ -139,31 +157,24 @@
 
 .markdown-source-view.mod-cm6 .inline-card-button:hover {
     filter: brightness(0.8);
-    /* 기존 어두워지는 효과 */
     transform: none;
-    /* 무빙 제거 */
 }
 
-/* --------------------------------------------------
-   2. 읽기 모드 전용 (Reading Mode) - 정갈한 사각 스타일
-   -------------------------------------------------- */
+/* 읽기 모드 (Reading Mode) */
 .markdown-rendered .inline-card-button {
     gap: 5px;
     padding: 2px 8px;
     border-radius: 4px;
-    /* 기존 사각 모양 */
     background-color: var(--background-secondary);
     vertical-align: middle;
 }
 
 .markdown-rendered .inline-card-button:hover {
     filter: brightness(0.8);
-    /* 기존 어두워지는 효과 */
     transform: none;
-    /* 무빙 제거 */
 }
 
-/* [공통 아이콘 및 텍스트 설정] */
+/* 공통 아이콘/텍스트 */
 .inline-button-icon {
     display: flex;
     align-items: center;
@@ -182,18 +193,15 @@
     font-weight: 500;
 }
 
-/* 6. 편집 모드 전용 컨테이너 확장 */
+/* 편집 모드 컨테이너 확장 */
 .cm-embed-block:has(.card-buttons-container) {
     max-width: 100%;
 }
 
-
-/* 모바일 최적화 (화면 너비 600px 이하) */
+/* 모바일 최적화 (600px 이하) */
 @media screen and (max-width: 600px) {
-
-    /* 1. 카드를 세로로 길게 배치하는 대신 한 줄에 하나 혹은 둘만 나오게 조정 */
     .card-buttons-container {
-        grid-template-columns: repeat(2, 1fr) !important;
+        --card-columns: 2 !important;
         gap: 8px !important;
     }
 
@@ -203,18 +211,11 @@
         overflow: hidden !important;
     }
 
-    /* 2. 이미지가 있는 경우: 이미지를 100% 채움 */
     .card-img-container {
         height: 100% !important;
         width: 100% !important;
     }
 
-    /* 3. 이미지가 있는 경우 정보창 숨기기 (이미지만 보이게)
-    .card-img-container+.card-info {
-        display: none !important;
-    } */
-
-    /* 4. 이미지가 없는 경우: 타이틀만 중앙에 크게 배치 */
     .card-item:not(:has(.card-img-container)) .card-info {
         height: 100% !important;
         width: 100% !important;
@@ -230,7 +231,6 @@
         text-align: center !important;
     }
 
-    /* 모바일에서 설명은 과감히 생략 */
     .card-item:not(:has(.card-img-container)) .card-desc {
         display: none !important;
     }
