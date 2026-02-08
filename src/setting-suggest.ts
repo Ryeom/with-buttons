@@ -30,11 +30,9 @@ export default class SettingSuggest extends EditorSuggest<SettingKeyword> {
 
         // 2. 위로 탐색하며 현재 코드 블록의 범위를 확인
         let isInsideSetting = false;
-        let blockStart = -1;
         for (let i = cursor.line - 1; i >= 0; i--) {
             const l = editor.getLine(i);
             if (l.includes("```card-buttons")) {
-                blockStart = i;
                 break;
             }
             if (l.includes("[setting]")) isInsideSetting = true;

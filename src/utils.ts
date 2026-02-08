@@ -31,13 +31,23 @@ export function resolveDynamicText(app: App, text: string): string {
  * 예: .card-item → div[data-style-xxx] .card-item
  */
 export function scopeCSS(rawCSS: string, scopeSelector: string): string {
-	return rawCSS.replace(/([^;{}]+)(?=\{)/g, (selectors) => {
-		return selectors.split(",").map(selector => {
-			const trimmed = selector.trim();
-			if (trimmed.includes(".card-buttons-container")) {
-				return trimmed.replace(".card-buttons-container", scopeSelector);
-			}
-			return `${scopeSelector} ${trimmed}`;
-		}).join(", ");
+	// @media, @keyframes 등 at-rule 블록 보호: 내부 선택자만 변환
+	return rawCSS.replace(/@[\w-]+[^{]*\{([\s\S]*?\})\s*\}/g, (atBlock) => {
+		// at-rule 내부의 선택자만 변환
+		return atBlock.replace(/([^;{}@]+)(?=\{)/g, (sel) => scopeSelectors(sel, scopeSelector));
+	}).replace(/(?<!@[\w-][^{]*)([^;{}@]+)(?=\{)/g, (sel) => {
+		// at-rule 밖의 일반 선택자 변환
+		return scopeSelectors(sel, scopeSelector);
 	});
+}
+
+function scopeSelectors(selectors: string, scopeSelector: string): string {
+	return selectors.split(",").map(selector => {
+		const trimmed = selector.trim();
+		if (!trimmed || trimmed.startsWith("@")) return trimmed;
+		if (trimmed.includes(".card-buttons-container")) {
+			return trimmed.replace(".card-buttons-container", scopeSelector);
+		}
+		return `${scopeSelector} ${trimmed}`;
+	}).join(", ");
 }

@@ -3,15 +3,11 @@ import { scopeCSS } from "./utils";
 import WithButtonsPlugin from "./main";
 
 export interface WithButtonsSettings {
-	aspectRatioWidth: number;
-	aspectRatioHeight: number;
 	customStyles: Record<string, string>;
 	palettes: Record<string, string>;
 }
 
 export const DEFAULT_SETTINGS: WithButtonsSettings = {
-	aspectRatioWidth: 5,
-	aspectRatioHeight: 4,
 	customStyles: {},
 	palettes: {
 		"Primary": "#007bff",

@@ -18,7 +18,8 @@ export default class ActionSuggest extends EditorSuggest<ActionKeyword> {
         { label: "copy", value: "copy | ", desc: "지정한 텍스트를 클립보드에 복사", icon: "copy" },
         { label: "command", value: "command | ", desc: "옵시디언 명령(Command) 실행", icon: "terminal" },
         { label: "search", value: "search | ", desc: "전체 검색창 열기 및 검색어 입력", icon: "search" },
-        { label: "js", value: "js | ", desc: "커스텀 자바스크립트 코드 실행", icon: "code-2" }
+        { label: "js", value: "js | ", desc: "커스텀 자바스크립트 코드 실행", icon: "code-2" },
+        { label: "toggle", value: "toggle | ", desc: "프론트매터 속성 true/false 토글", icon: "toggle-left" }
     ];
 
     constructor(app: App) { super(app); }
