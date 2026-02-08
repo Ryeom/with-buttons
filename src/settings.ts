@@ -143,7 +143,14 @@ class CSSEditModal extends Modal {
 
 		const palettes = this.palettes;
 
-		Object.entries(palettes).forEach(([name, color]) => {
+		// Obsidian 볼트 accent color를 첫 번째에 삽입
+		const accentColor = getComputedStyle(document.body).getPropertyValue("--interactive-accent").trim();
+		const allPalettes: [string, string][] = [
+			["Accent", "var(--interactive-accent)"],
+			...Object.entries(palettes),
+		];
+
+		allPalettes.forEach(([name, color]) => {
 			const item = paletteBar.createEl("div");
 			item.style.flex = "0 0 auto"; // No shrinking
 			item.style.cursor = "pointer";
