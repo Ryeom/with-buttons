@@ -13,37 +13,32 @@ export interface CardData {
 }
 
 export class CardBlockRenderer extends MarkdownRenderChild {
-	private injectedStyleTags: HTMLStyleElement[] = [];
-	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	private activeStyleIds: string[] = [];
+	readonly hasDynamicText: boolean;
 
 	constructor(containerEl: HTMLElement, private source: string, private plugin: WithButtonsPlugin) {
 		super(containerEl);
+		this.hasDynamicText = source.includes("${");
 	}
 
 	onload() {
+		this.plugin.registerCardRenderer(this);
 		this.render();
-		const debouncedRender = () => {
-			if (this.debounceTimer) clearTimeout(this.debounceTimer);
-			this.debounceTimer = setTimeout(() => this.render(), 100);
-		};
-		this.registerEvent(this.plugin.app.vault.on("create", debouncedRender));
-		this.registerEvent(this.plugin.app.vault.on("delete", debouncedRender));
-		this.registerEvent(this.plugin.app.vault.on("rename", debouncedRender));
-		if (this.source.includes("${")) {
-			this.registerEvent(this.plugin.app.vault.on("modify", debouncedRender));
-		}
 	}
 
 	onunload() {
-		this.injectedStyleTags.forEach(tag => tag.remove());
-		this.injectedStyleTags = [];
-		if (this.debounceTimer) clearTimeout(this.debounceTimer);
+		this.plugin.unregisterCardRenderer(this);
+		this.releaseStyles();
+	}
+
+	private releaseStyles() {
+		this.activeStyleIds.forEach(id => this.plugin.releaseStyleTag(id));
+		this.activeStyleIds = [];
 	}
 
 	render() {
 		this.containerEl.empty();
-		this.injectedStyleTags.forEach(tag => tag.remove());
-		this.injectedStyleTags = [];
+		this.releaseStyles();
 		const el = this.containerEl;
 		const parts = this.source.split("[card]");
 		const firstPart = parts[0] || "";
@@ -99,8 +94,8 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 				if (fullCSS) {
 					const scopeAttr = `data-style-${id}`;
 					container.setAttribute(scopeAttr, "");
-					const styleTag = document.head.createEl("style", { attr: { id: `style-tag-${id}` } });
-					this.injectedStyleTags.push(styleTag);
+					const styleTag = this.plugin.acquireStyleTag(id);
+					this.activeStyleIds.push(id);
 					styleTag.textContent = scopeCSS(fullCSS, `div[${scopeAttr}]`);
 				}
 			});

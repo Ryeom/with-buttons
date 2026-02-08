@@ -12,6 +12,9 @@ import { CardBlockRenderer, CardData } from './card-renderer';
 
 export default class WithButtonsPlugin extends Plugin {
 	settings: WithButtonsSettings;
+	private cardRenderers = new Set<CardBlockRenderer>();
+	private renderTimer: ReturnType<typeof setTimeout> | null = null;
+	private styleRefs = new Map<string, { tag: HTMLStyleElement; count: number }>();
 
 	async onload() {
 		await this.loadSettings();
@@ -19,6 +22,20 @@ export default class WithButtonsPlugin extends Plugin {
 		this.registerEditorSuggest(new ActionSuggest(this.app));
 		this.registerEditorSuggest(new SettingSuggest(this.app));
 		this.registerEditorExtension(this.buildLivePreviewPlugin());
+
+		// vault 이벤트를 플러그인 레벨에서 한 번만 등록
+		const scheduleRender = (modifyOnly = false) => {
+			if (this.renderTimer) clearTimeout(this.renderTimer);
+			this.renderTimer = setTimeout(() => {
+				this.cardRenderers.forEach(r => {
+					if (!modifyOnly || r.hasDynamicText) r.render();
+				});
+			}, 100);
+		};
+		this.registerEvent(this.app.vault.on("create", () => scheduleRender()));
+		this.registerEvent(this.app.vault.on("delete", () => scheduleRender()));
+		this.registerEvent(this.app.vault.on("rename", () => scheduleRender()));
+		this.registerEvent(this.app.vault.on("modify", () => scheduleRender(true)));
 
 		this.registerMarkdownPostProcessor((el, ctx) => {
 			const codes = el.querySelectorAll("code");
@@ -37,8 +54,24 @@ export default class WithButtonsPlugin extends Plugin {
 		this.addSettingTab(new WithButtonsSettingTab(this.app, this));
 	}
 
+	registerCardRenderer(renderer: CardBlockRenderer) { this.cardRenderers.add(renderer); }
+	unregisterCardRenderer(renderer: CardBlockRenderer) { this.cardRenderers.delete(renderer); }
+
+	acquireStyleTag(id: string): HTMLStyleElement {
+		const ref = this.styleRefs.get(id);
+		if (ref) { ref.count++; return ref.tag; }
+		const tag = document.head.createEl("style", { attr: { id: `style-tag-${id}` } });
+		this.styleRefs.set(id, { tag, count: 1 });
+		return tag;
+	}
+
+	releaseStyleTag(id: string) {
+		const ref = this.styleRefs.get(id);
+		if (!ref) return;
+		if (--ref.count <= 0) { ref.tag.remove(); this.styleRefs.delete(id); }
+	}
+
 	async handleAction(actionString: string) {
-		console.log("With Buttons: Handling action:", actionString);
 		const parts = actionString.split("|").map(s => s.trim());
 		const type = parts[0];
 		if (!type) return;
