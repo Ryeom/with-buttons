@@ -6,7 +6,7 @@ import {
 export default class FileSuggest extends EditorSuggest<TFile> {
     constructor(app: App) { super(app); }
 
-    onTrigger(cursor: EditorPosition, editor: Editor, file: TFile): EditorSuggestTriggerInfo | null {
+    onTrigger(cursor: EditorPosition, editor: Editor, file: TFile | null): EditorSuggestTriggerInfo | null {
         const line = editor.getLine(cursor.line);
         const sub = line.substring(0, cursor.ch);
         const match = sub.match(/(open|create|picture)\s*[:|]\s*([^:|]*)$/);

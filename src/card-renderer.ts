@@ -83,11 +83,8 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 		if (titleSize) container.style.setProperty("--title-size", titleSize);
 		if (descSize) container.style.setProperty("--desc-size", descSize);
 
-		if (imgRatioStr) {
-			const rawRatio = parseInt(imgRatioStr);
-			const imgRatio = isNaN(rawRatio) ? 60 : Math.min(Math.max(rawRatio, 0), 100);
-			container.style.setProperty("--img-ratio", `${imgRatio}%`);
-		}
+		const rawRatio = imgRatioStr ? parseInt(imgRatioStr) : 60;
+		const imgRatio = isNaN(rawRatio) ? 60 : Math.min(Math.max(rawRatio, 0), 100);
 
 		// data-direction 속성으로 레이아웃 분기
 		if (direction === "horizontal") {
@@ -141,10 +138,14 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 			const isOnlyImage = rawPic.includes("|only");
 			const picPath = isOnlyImage ? rawPic.split("|only")[0]?.trim() : rawPic.trim();
 
+			const isVert = direction !== "horizontal";
+
 			if (picPath) {
 				const res = this.plugin.resolveImagePath(picPath);
 				if (res) {
 					const imgDiv = cardEl.createEl("div", { cls: isOnlyImage ? "card-img-container is-only-image" : "card-img-container" });
+					// aspect-ratio 안에서 %가 안 먹히므로 flex-grow 비율로 분배
+					if (!isOnlyImage) imgDiv.style.flex = `${imgRatio} 0 0`;
 					imgDiv.createEl("img", { attr: { src: res }, cls: "card-img" });
 					imgDiv.createEl("div", { cls: "card-img-overlay" });
 				}
@@ -152,6 +153,7 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 
 			if (!isOnlyImage) {
 				const infoEl = cardEl.createEl("div", { cls: "card-info" });
+				if (picPath) infoEl.style.flex = `${100 - imgRatio} 0 0`;
 				if (data.title) infoEl.createEl("div", { text: data.title, cls: "card-title" });
 				if (data.desc) infoEl.createEl("p", { text: data.desc, cls: "card-desc" });
 			}

@@ -6,7 +6,7 @@ import {
 import { DEFAULT_SETTINGS, WithButtonsSettings, WithButtonsSettingTab } from "./settings";
 import FileSuggest from './file-suggest';
 import ActionSuggest from './action-suggest';
-import SettingSuggest from 'setting-suggest';
+import SettingSuggest from './setting-suggest';
 import { InlineButtonWidget, InlineButtonChild } from './inline-button';
 import { CardBlockRenderer, CardData } from './card-renderer';
 

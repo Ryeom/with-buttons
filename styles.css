@@ -2,7 +2,6 @@
 .card-buttons-container {
     --card-columns: 1;
     --card-ratio: 1 / 1;
-    --img-ratio: 60%;
     --title-size: 14px;
     --desc-size: 11px;
 
@@ -51,16 +50,15 @@
 
 /* 3. 이미지 영역 — vertical: height 기준, horizontal: width 기준 */
 .card-img-container {
-    width: 100%;
-    height: var(--img-ratio);
     background-color: var(--background-secondary);
     overflow: hidden;
-    flex-shrink: 0;
     position: relative;
+    min-height: 0;
+    width: 100%;
 }
 
 .card-buttons-container[data-direction="horizontal"] .card-img-container {
-    width: var(--img-ratio);
+    width: auto;
     height: 100%;
 }
 
@@ -102,13 +100,19 @@
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    flex-grow: 1;
+    flex: 1 1 0;
+    min-height: 0;
     overflow: hidden;
     background-color: inherit;
+    container-type: size;
+}
+
+@container (max-height: 36px) {
+    .card-desc { display: none; }
 }
 
 /* 제목 */
-.card-title {
+.card-info .card-title {
     font-weight: 700;
     font-size: var(--title-size);
     color: var(--text-normal);
@@ -122,7 +126,7 @@
 }
 
 /* 설명 */
-.card-desc {
+.card-info .card-desc {
     font-size: var(--desc-size);
     color: var(--text-muted);
     line-height: 1.2;
