@@ -102,6 +102,12 @@
     background-color: var(--background-secondary);
     min-height: 0;
     overflow: hidden;
+    width: 100%;
+}
+
+.card-buttons-container[data-direction="horizontal"] .card-icon-container {
+    width: auto;
+    height: 100%;
 }
 
 .card-icon-container svg {

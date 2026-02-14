@@ -150,7 +150,7 @@ export default class WithButtonsPlugin extends Plugin {
 				if (file instanceof TFile) {
 					this.app.fileManager.processFrontMatter(file, (fm) => {
 						const cur = fm[prop];
-						fm[prop] = cur === true ? false : true;
+						fm[prop] = !cur;
 					});
 				} else {
 					new Notice("파일을 찾을 수 없습니다.");
@@ -164,7 +164,7 @@ export default class WithButtonsPlugin extends Plugin {
 	async createNewFileFromTemplate(tPath: string, rawArgs: string = "") {
 		try {
 			const tFile = this.app.metadataCache.getFirstLinkpathDest(tPath, "");
-			if (!tFile || !(tFile instanceof TFile)) {
+			if (!tFile) {
 				new Notice("템플릿 탐색 실패");
 				return;
 			}
@@ -242,7 +242,7 @@ export default class WithButtonsPlugin extends Plugin {
 			}
 			buildDecorations(view: EditorView) {
 				const decorations: any[] = [];
-				const regex = /`\[!(.*?)!\]`/g;
+				const regex = /`\[!(.*?)!]`/g;
 				const selection = view.state.selection.main;
 				for (const { from, to } of view.visibleRanges) {
 					const text = view.state.doc.sliceString(from, to);
