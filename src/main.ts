@@ -52,6 +52,16 @@ export default class WithButtonsPlugin extends Plugin {
 			ctx.addChild(child);
 		});
 		this.addSettingTab(new WithButtonsSettingTab(this.app, this));
+
+		// 스니펫 삽입 커맨드
+		this.addCommand({
+			id: "insert-card-block",
+			name: "카드 블록 삽입",
+			editorCallback: (editor) => {
+				const snippet = "```card-buttons\n[setting]\ncolumns: 3\nratio: 3:4\nimg-ratio: 60\n\n[card]\ntitle: 제목\ndesc: 설명\naction: url|https://\n```";
+				editor.replaceSelection(snippet);
+			}
+		});
 	}
 
 	registerCardRenderer(renderer: CardBlockRenderer) { this.cardRenderers.add(renderer); }

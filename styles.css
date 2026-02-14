@@ -94,6 +94,22 @@
     cursor: pointer;
 }
 
+/* 3-1. 아이콘 영역 */
+.card-icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--background-secondary);
+    min-height: 0;
+    overflow: hidden;
+}
+
+.card-icon-container svg {
+    width: 40%;
+    height: 40%;
+    color: var(--text-muted);
+}
+
 /* 4. 정보 영역 (텍스트) */
 .card-info {
     padding: 8px 10px;

@@ -1,4 +1,4 @@
-import { MarkdownRenderChild } from 'obsidian';
+import { MarkdownRenderChild, setIcon } from 'obsidian';
 import { resolveDynamicText, scopeCSS } from './utils';
 import type WithButtonsPlugin from './main';
 
@@ -6,6 +6,7 @@ export interface CardData {
 	title?: string;
 	desc?: string;
 	picture?: string;
+	icon?: string;
 	action?: string;
 	color?: string;
 	textColor?: string;
@@ -51,6 +52,7 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 		let styleId = "";
 		let imgRatioStr = "";
 		let direction = "";
+		let columns = "";
 
 		if (settingSource) {
 			settingSource.split("\n").forEach(line => {
@@ -66,6 +68,7 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 					if (key === "style") styleId = value;
 					if (key === "img-ratio") imgRatioStr = value.replace("%", "");
 					if (key === "direction") direction = value.toLowerCase();
+					if (key === "columns") columns = value;
 				}
 			});
 		}
@@ -73,7 +76,8 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 		const container = el.createEl("div", { cls: "card-buttons-container" });
 
 		// CSS 변수 주입 (사용자 설정값이 있을 때만 기본값 오버라이드)
-		container.style.setProperty("--card-columns", String(cardSections.length || 1));
+		const colCount = columns ? parseInt(columns) || cardSections.length : cardSections.length;
+		container.style.setProperty("--card-columns", String(colCount || 1));
 		if (localRatio) container.style.setProperty("--card-ratio", localRatio);
 		if (titleSize) container.style.setProperty("--title-size", titleSize);
 		if (descSize) container.style.setProperty("--desc-size", descSize);
@@ -132,8 +136,8 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 			const rawPic = data.picture || "";
 			const isOnlyImage = rawPic.includes("|only");
 			const picPath = isOnlyImage ? rawPic.split("|only")[0]?.trim() : rawPic.trim();
-
-			const isVert = direction !== "horizontal";
+			const iconId = data.icon?.trim() || "";
+			const hasVisual = !!(picPath || iconId);
 
 			if (picPath) {
 				const res = this.plugin.resolveImagePath(picPath);
@@ -144,11 +148,15 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 					imgDiv.createEl("img", { attr: { src: res }, cls: "card-img" });
 					imgDiv.createEl("div", { cls: "card-img-overlay" });
 				}
+			} else if (iconId && !isOnlyImage) {
+				const iconDiv = cardEl.createEl("div", { cls: "card-icon-container" });
+				iconDiv.style.flex = `${imgRatio} 0 0`;
+				setIcon(iconDiv, iconId);
 			}
 
 			if (!isOnlyImage) {
 				const infoEl = cardEl.createEl("div", { cls: "card-info" });
-				if (picPath) infoEl.style.flex = `${100 - imgRatio} 0 0`;
+				if (hasVisual) infoEl.style.flex = `${100 - imgRatio} 0 0`;
 				if (data.title) infoEl.createEl("div", { text: data.title, cls: "card-title" });
 				if (data.desc) infoEl.createEl("p", { text: data.desc, cls: "card-desc" });
 			}

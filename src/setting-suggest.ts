@@ -17,6 +17,7 @@ export default class SettingSuggest extends EditorSuggest<SettingKeyword> {
         { label: "img-ratio", value: "img-ratio: ", desc: "이미지가 차지하는 비율 (%)", icon: "image" },
         { label: "title-size", value: "title-size: ", desc: "제목 글자 크기 (px)", icon: "type" },
         { label: "desc-size", value: "desc-size: ", desc: "설명 글자 크기 (px)", icon: "align-left" },
+        { label: "columns", value: "columns: ", desc: "열 수 지정 (미설정 시 카드 개수)", icon: "columns-3" },
         { label: "style", value: "style: ", desc: "등록된 커스텀 CSS 스타일 ID 적용", icon: "palette" }
     ];
 
