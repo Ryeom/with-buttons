@@ -137,7 +137,7 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 			const isOnlyImage = rawPic.includes("|only");
 			const picPath = isOnlyImage ? rawPic.split("|only")[0]?.trim() : rawPic.trim();
 			const iconId = data.icon?.trim() || "";
-			const hasVisual = !!(picPath || iconId);
+			let visualRendered = false;
 
 			if (picPath) {
 				const res = this.plugin.resolveImagePath(picPath);
@@ -147,16 +147,18 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 					if (!isOnlyImage) imgDiv.style.flex = `${imgRatio} 0 0`;
 					imgDiv.createEl("img", { attr: { src: res }, cls: "card-img" });
 					imgDiv.createEl("div", { cls: "card-img-overlay" });
+					visualRendered = true;
 				}
 			} else if (iconId && !isOnlyImage) {
 				const iconDiv = cardEl.createEl("div", { cls: "card-icon-container" });
 				iconDiv.style.flex = `${imgRatio} 0 0`;
 				setIcon(iconDiv, iconId);
+				visualRendered = true;
 			}
 
 			if (!isOnlyImage) {
 				const infoEl = cardEl.createEl("div", { cls: "card-info" });
-				if (hasVisual) infoEl.style.flex = `${100 - imgRatio} 0 0`;
+				if (visualRendered) infoEl.style.flex = `${100 - imgRatio} 0 0`;
 				if (data.title) infoEl.createEl("div", { text: data.title, cls: "card-title" });
 				if (data.desc) infoEl.createEl("p", { text: data.desc, cls: "card-desc" });
 			}

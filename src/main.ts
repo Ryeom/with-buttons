@@ -82,14 +82,15 @@ export default class WithButtonsPlugin extends Plugin {
 	}
 
 	async handleAction(actionString: string) {
-		const parts = actionString.split("|").map(s => s.trim());
-		const type = parts[0];
-		if (!type) return;
+		try {
+			const parts = actionString.split("|").map(s => s.trim());
+			const type = parts[0];
+			if (!type) return;
 
-		const val1 = parts[1] ?? "";
-		const val2 = parts[2] ?? val1;
+			const val1 = parts[1] ?? "";
+			const val2 = parts[2] ?? val1;
 
-		switch (type) {
+			switch (type) {
 			case "url":
 				if (!val1) return;
 				const mobileScheme = parts[2];
@@ -158,6 +159,10 @@ export default class WithButtonsPlugin extends Plugin {
 				break;
 			default:
 				new Notice(`알 수 없는 액션: ${type}`);
+			}
+		} catch (error) {
+			new Notice("액션 실행 중 오류가 발생했습니다.");
+			console.error("With Buttons: Action execution failed:", error);
 		}
 	}
 
