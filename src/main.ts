@@ -206,10 +206,11 @@ export default class WithButtonsPlugin extends Plugin {
 	}
 
 	private mergeYaml(content: string, props: any) {
-		if (content.startsWith("---")) {
-			const parts = content.split("---");
-			const yamlPart = parts[1];
-			if (yamlPart && parts.length >= 3) {
+		// 정확한 frontmatter 블록만 매칭 (본문의 --- 구분선 제외)
+		const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+		if (fmMatch) {
+			const yamlPart = fmMatch[1];
+			if (yamlPart) {
 				let yamlLines = yamlPart.split("\n").filter(l => l.trim() !== "");
 				for (const [key, value] of Object.entries(props)) {
 					const idx = yamlLines.findIndex(l => l.trim().startsWith(`${key}:`));
@@ -221,8 +222,9 @@ export default class WithButtonsPlugin extends Plugin {
 						else yamlLines.push(`${key}: ${value}`);
 					}
 				}
-				parts[1] = "\n" + yamlLines.join("\n") + "\n";
-				return parts.join("---");
+				const newFrontmatter = "---\n" + yamlLines.join("\n") + "\n---";
+				const bodyContent = content.substring(fmMatch[0].length);
+				return newFrontmatter + bodyContent;
 			}
 		} else {
 			let newYaml = "---\n";

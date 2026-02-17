@@ -153,7 +153,8 @@ export class CardBlockRenderer extends MarkdownRenderChild {
 				const iconDiv = cardEl.createEl("div", { cls: "card-icon-container" });
 				iconDiv.style.flex = `${imgRatio} 0 0`;
 				setIcon(iconDiv, iconId);
-				visualRendered = true;
+				// 실제로 아이콘이 렌더링되었는지 확인 (invalid icon ID 방어)
+				if (iconDiv.children.length > 0) visualRendered = true;
 			}
 
 			if (!isOnlyImage) {

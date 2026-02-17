@@ -231,13 +231,12 @@ class CSSEditModal extends Modal {
 		card.style.flexDirection = "column";
 		card.style.overflow = "hidden"; // Mimic real card behavior
 
-		// 1. Image
+		// 1. Image (실제 렌더링과 동일하게 flex 사용)
 		if (this.showImage) {
 			const imgContainer = card.createEl("div", { cls: "card-img-container" });
-			imgContainer.style.height = `${this.imgRatio}%`;
-			imgContainer.style.width = "100%";
+			imgContainer.style.flex = `${this.imgRatio} 0 0`;
 			imgContainer.style.backgroundColor = "#ddd";
-			imgContainer.style.flexShrink = "0";
+			imgContainer.style.minHeight = "0";
 
 			// Placeholder image text
 			const placeholder = imgContainer.createEl("div", { text: "IMG", cls: "card-img" });
@@ -248,21 +247,18 @@ class CSSEditModal extends Modal {
 			placeholder.style.width = "100%";
 		}
 
-		// 2. Info
+		// 2. Info (실제 렌더링과 동일하게 flex 사용)
 		const info = card.createEl("div", { cls: "card-info" });
-		info.style.flex = "1";
-		// Exact logic from main.ts: if image exists, height is 100 - ratio. Else 100%.
-		info.style.height = this.showImage ? `${100 - this.imgRatio}%` : "100%";
-		info.style.width = "100%";
-		info.style.display = "flex";
-		info.style.flexDirection = "column";
+		if (this.showImage) {
+			info.style.flex = `${100 - this.imgRatio} 0 0`;
+		} else {
+			info.style.flex = "1 1 0";
+		}
+		info.style.minHeight = "0";
 
 		const title = info.createEl("div", { text: "미리보기 제목", cls: "card-title" });
-		title.style.fontWeight = "bold";
-		title.style.marginBottom = "2px";
 
 		const desc = info.createEl("div", { text: "이곳에 스타일이 즉시 반영됩니다.", cls: "card-desc" });
-		desc.style.fontSize = "0.8em";
 	}
 
 	updatePreviewStyles() {
