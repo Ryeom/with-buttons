@@ -127,7 +127,9 @@ export default class WithButtonsPlugin extends Plugin {
 			case "search":
 				if (!val2) return;
 				const searchPlugin = (this.app as any).internalPlugins.getPluginById("global-search");
-				if (searchPlugin) searchPlugin.instance.openGlobalSearch(val2);
+				if (searchPlugin?.instance?.openGlobalSearch) {
+					searchPlugin.instance.openGlobalSearch(val2);
+				}
 				break;
 			case "create":
 				if (!val1) return;
