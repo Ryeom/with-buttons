@@ -1,4 +1,7 @@
-import { App } from 'obsidian';
+import { App, Notice } from 'obsidian';
+
+// Dataview 미설치 경고를 세션당 한 번만 표시하기 위한 플래그
+let dataviewWarningShown = false;
 
 /**
  * ${...} 플레이스홀더를 Dataview API로 평가한다.
@@ -10,7 +13,11 @@ export function resolveDynamicText(app: App, text: string): string {
 	if (!dv) dv = (window as any).DataviewAPI;
 
 	if (!dv) {
-		console.warn("With Buttons: Dataview API not found. Please ensure Dataview is installed and enabled.");
+		if (!dataviewWarningShown) {
+			console.warn("With Buttons: Dataview API not found.");
+			new Notice("Dataview 플러그인이 필요합니다. ${...} 구문을 사용하려면 Dataview를 설치하세요.", 5000);
+			dataviewWarningShown = true;
+		}
 		return text;
 	}
 
